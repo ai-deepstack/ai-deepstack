@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.deepstack.ai.knowledge.mapper.KnowledgeBaseMapper">
+
+    <resultMap id="BaseResultMap" type="org.deepstack.ai.knowledge.model.entity.KnowledgeBase">
+        <id property="id" column="id"/>
+        <result property="baseCode" column="base_code"/>
+        <result property="baseName" column="base_name"/>
+        <result property="description" column="description"/>
+        <result property="domain" column="domain"/>
+        <result property="embeddingModelCode" column="embedding_model_code"/>
+        <result property="chunkSize" column="chunk_size"/>
+        <result property="chunkOverlap" column="chunk_overlap"/>
+        <result property="topK" column="top_k"/>
+        <result property="similarityThreshold" column="similarity_threshold"/>
+        <result property="enableGraph" column="enable_graph"/>
+        <result property="graphModelCode" column="graph_model_code"/>
+        <result property="ragDatasetId" column="rag_dataset_id"/>
+        <result property="enabled" column="enabled"/>
+        <result property="isDel" column="is_del"/>
+        <result property="creatorId" column="creator_id"/>
+        <result property="creator" column="creator"/>
+        <result property="modifierId" column="modifier_id"/>
+        <result property="modifier" column="modifier"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, base_code, base_name, description, domain, embedding_model_code, chunk_size, chunk_overlap, top_k, similarity_threshold, enable_graph, graph_model_code, rag_dataset_id, enabled, is_del, creator_id, creator, modifier_id, modifier, create_time, update_time
+    </sql>
+
+</mapper>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.deepstack.ai.chat.mapper.ChatConversationMapper">
+
+    <resultMap id="BaseResultMap" type="org.deepstack.ai.chat.model.entity.ChatConversation">
+        <id property="id" column="id"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="title" column="title"/>
+        <result property="agentCode" column="agent_code"/>
+        <result property="userId" column="user_id"/>
+        <result property="lastMessageAt" column="last_message_at"/>
+        <result property="messageCount" column="message_count"/>
+        <result property="isDel" column="is_del"/>
+        <result property="creatorId" column="creator_id"/>
+        <result property="creator" column="creator"/>
+        <result property="modifierId" column="modifier_id"/>
+        <result property="modifier" column="modifier"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, conversation_id, title, agent_code, user_id, last_message_at, message_count, is_del, creator_id, creator, modifier_id, modifier, create_time, update_time
+    </sql>
+
+</mapper>

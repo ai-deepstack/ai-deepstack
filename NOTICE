@@ -1,0 +1,74 @@
+AI Deepstack
+Copyright 2026 The AI Deepstack Authors
+
+This product includes software developed by The AI Deepstack Authors
+(https://github.com/ai-deepstack/ai-deepstack).
+
+This product is licensed under the Apache License, Version 2.0 (the "License");
+you may not use this product except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+================================================================================
+Third-party dependencies and their licenses
+================================================================================
+
+This product bundles or depends on the following third-party open source
+components. Each is licensed by its respective owner under its own license;
+the full license texts are distributed with the artifacts or available from
+the upstream projects.
+
+Spring ecosystem (Apache License 2.0)
+  - Spring Framework, Spring Boot, Spring Security (Pivotal / VMware)
+  - Spring AI (Apache License 2.0) - https://spring.io/projects/spring-ai
+
+LangGraph4j (Apache License 2.0) - https://github.com/bsorrentino/langgraph4j
+  - langgraph4j-core, langgraph4j-spring-ai, langgraph4j-postgres-saver
+
+MyBatis-Plus (Apache License 2.0) - https://github.com/baomidou/mybatis-plus
+  - mybatis-plus-spring-boot4-starter, mybatis-plus-jsqlparser
+
+Jackson (Apache License 2.0) - https://github.com/FasterXML/jackson
+  - jackson-databind, jackson-annotations
+
+JJWT (Apache License 2.0) - https://github.com/jwtk/jjwt
+  - jjwt-api, jjwt-impl, jjwt-jackson
+
+Apache Tika (Apache License 2.0) - https://tika.apache.org
+  - tika-core, tika-parsers-standard-package
+  - NOTE: tika-parsers-standard-package transitively bundles numerous
+    parser libraries with heterogeneous licenses (MIT, BSD-style, LGPL,
+    etc.). Refer to the Tika project's LICENSE and NOTICE files for the
+    complete list.
+
+Apache AGE integration (Apache License 2.0) - https://age.apache.org
+  - used via PostgreSQL extension; graph driver shipped in
+    ai-deepstack-graph-age (optional)
+
+PostgreSQL JDBC Driver (PostgreSQL Licence, BSD-style) -
+  https://jdbc.postgresql.org
+
+Alibaba fastjson2 (Apache License 2.0) - https://github.com/alibaba/fastjson2
+
+jsoup (MIT License) - https://jsoup.org
+
+P6Spy (Apache License 2.0 / MIT dual) - https://github.com/p6spy/p6spy
+
+AWS SDK for Java v2 (Apache License 2.0) - https://github.com/aws/aws-sdk-java-v2
+  - s3 (S3-compatible object storage access; used with MinIO and others)
+
+Redis clients and Spring Data Redis (Apache License 2.0 / MIT for Lettuce)
+
+SLF4J (MIT License) - https://www.slf4j.org
+
+Lombok (MIT License) - https://projectlombok.org
+
+Frontend (ai-deepstack-web, Vue 3 management console):
+  - Vue 3 and its ecosystem (MIT License)
+  - Vite and plugins (MIT License)
+  - Refer to ai-deepstack-web/package.json for the complete list;
+    license texts are available from the respective npm packages.
+
+Jakarta Validation API (Apache License 2.0 / Eclipse Public License 2.0) -
+  https://jakarta.ee/specifications/validation/

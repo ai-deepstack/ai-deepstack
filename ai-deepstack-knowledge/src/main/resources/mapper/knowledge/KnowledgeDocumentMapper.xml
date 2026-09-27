@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.deepstack.ai.knowledge.mapper.KnowledgeDocumentMapper">
+
+    <resultMap id="BaseResultMap" type="org.deepstack.ai.knowledge.model.entity.KnowledgeDocument">
+        <id property="id" column="id"/>
+        <result property="knowledgeBaseId" column="knowledge_base_id"/>
+        <result property="title" column="title"/>
+        <result property="sourceType" column="source_type"/>
+        <result property="sourceUrl" column="source_url"/>
+        <result property="fileKey" column="file_key"/>
+        <result property="filePath" column="file_path"/>
+        <result property="fileName" column="file_name"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="mimeType" column="mime_type"/>
+        <result property="rawContent" column="raw_content"/>
+        <result property="contentHash" column="content_hash"/>
+        <result property="tags" column="tags"/>
+        <result property="parseStatus" column="parse_status"/>
+        <result property="embedStatus" column="embed_status"/>
+        <result property="graphStatus" column="graph_status"/>
+        <result property="graphError" column="graph_error"/>
+        <result property="chunkCount" column="chunk_count"/>
+        <result property="errorMsg" column="error_msg"/>
+        <result property="isDel" column="is_del"/>
+        <result property="creatorId" column="creator_id"/>
+        <result property="creator" column="creator"/>
+        <result property="modifierId" column="modifier_id"/>
+        <result property="modifier" column="modifier"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, knowledge_base_id, title, source_type, source_url, file_key, file_path, file_name, file_size, mime_type, raw_content, content_hash, tags, parse_status, embed_status, graph_status, graph_error, chunk_count, error_msg, is_del, creator_id, creator, modifier_id, modifier, create_time, update_time
+    </sql>
+
+</mapper>

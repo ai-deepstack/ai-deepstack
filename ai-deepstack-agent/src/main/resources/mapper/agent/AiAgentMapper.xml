@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.deepstack.ai.agent.mapper.AiAgentMapper">
+
+    <resultMap id="BaseResultMap" type="org.deepstack.ai.agent.model.entity.AiAgent">
+        <id property="id" column="id"/>
+        <result property="agentCode" column="agent_code"/>
+        <result property="agentName" column="agent_name"/>
+        <result property="systemPrompt" column="system_prompt"/>
+        <result property="modelCode" column="model_code"/>
+        <result property="temperature" column="temperature"/>
+        <result property="maxTokens" column="max_tokens"/>
+        <result property="topP" column="top_p"/>
+        <result property="memoryMaxMessages" column="memory_max_messages"/>
+        <result property="enableMemory" column="enable_memory"/>
+        <result property="responseFormat" column="response_format"/>
+        <result property="responseSchema" column="response_schema"/>
+        <result property="enabled" column="enabled"/>
+        <result property="enableLongTermMemory" column="enable_long_term_memory"/>
+        <result property="enableGraphMemory" column="enable_graph_memory"/>
+        <result property="orchestrateMode" column="orchestrate_mode"/>
+        <result property="graphDefinition" column="graph_definition" typeHandler="org.deepstack.ai.kernel.mybatis.PostgresJsonbTypeHandler"/>
+        <result property="graphVersion" column="graph_version"/>
+        <result property="traceMode" column="trace_mode"/>
+        <result property="streamProgress" column="stream_progress"/>
+        <result property="coverUrl" column="cover_url"/>
+        <result property="isDel" column="is_del"/>
+        <result property="creatorId" column="creator_id"/>
+        <result property="creator" column="creator"/>
+        <result property="modifierId" column="modifier_id"/>
+        <result property="modifier" column="modifier"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, agent_code, agent_name, system_prompt, model_code, temperature, max_tokens, top_p,
+        memory_max_messages, enable_memory, response_format, response_schema, enabled,
+        enable_long_term_memory, enable_graph_memory, orchestrate_mode, graph_definition,
+        graph_version, trace_mode, stream_progress, cover_url, is_del, creator_id, creator,
+        modifier_id, modifier, create_time, update_time
+    </sql>
+
+</mapper>

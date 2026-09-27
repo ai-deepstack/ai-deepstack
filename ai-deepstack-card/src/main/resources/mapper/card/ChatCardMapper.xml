@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.deepstack.ai.card.mapper.ChatCardMapper">
+
+    <resultMap id="BaseResultMap" type="org.deepstack.ai.card.model.entity.ChatCardEntity">
+        <id property="id" column="id"/>
+        <result property="cardId" column="card_id"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="threadId" column="thread_id"/>
+        <result property="checkpointId" column="checkpoint_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="cardType" column="card_type"/>
+        <result property="title" column="title"/>
+        <result property="payload" column="payload" typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"/>
+        <result property="actions" column="actions" typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"/>
+        <result property="status" column="status"/>
+        <result property="parentCardId" column="parent_card_id"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="isDel" column="is_del"/>
+        <result property="creatorId" column="creator_id"/>
+        <result property="creator" column="creator"/>
+        <result property="modifierId" column="modifier_id"/>
+        <result property="modifier" column="modifier"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, card_id, conversation_id, thread_id, checkpoint_id, user_id, card_type, title, payload, actions, status, parent_card_id, expires_at, is_del, creator_id, creator, modifier_id, modifier, create_time, update_time
+    </sql>
+
+</mapper>

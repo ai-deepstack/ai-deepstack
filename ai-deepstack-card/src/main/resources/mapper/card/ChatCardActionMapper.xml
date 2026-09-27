@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.deepstack.ai.card.mapper.ChatCardActionMapper">
+
+    <resultMap id="BaseResultMap" type="org.deepstack.ai.card.model.entity.ChatCardActionEntity">
+        <id property="id" column="id"/>
+        <result property="cardId" column="card_id"/>
+        <result property="action" column="action"/>
+        <result property="modifiedPayload" column="modified_payload" typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"/>
+        <result property="operatorId" column="operator_id"/>
+        <result property="isDel" column="is_del"/>
+        <result property="creatorId" column="creator_id"/>
+        <result property="creator" column="creator"/>
+        <result property="modifierId" column="modifier_id"/>
+        <result property="modifier" column="modifier"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, card_id, action, modified_payload, operator_id, is_del, creator_id, creator, modifier_id, modifier, create_time, update_time
+    </sql>
+
+</mapper>

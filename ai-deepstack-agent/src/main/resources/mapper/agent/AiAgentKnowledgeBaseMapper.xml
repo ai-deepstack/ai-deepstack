@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.deepstack.ai.agent.mapper.AiAgentKnowledgeBaseMapper">
+
+    <resultMap id="BaseResultMap" type="org.deepstack.ai.agent.model.entity.AiAgentKnowledgeBase">
+        <id property="id" column="id"/>
+        <result property="agentId" column="agent_id"/>
+        <result property="knowledgeBaseCode" column="knowledge_base_code"/>
+        <result property="priority" column="priority"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, agent_id, knowledge_base_code, priority, create_time
+    </sql>
+
+</mapper>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.deepstack.ai.chat.mapper.memory.ChatMemoryMapper">
+
+    <resultMap id="BaseResultMap" type="org.deepstack.ai.chat.model.entity.memory.ChatMemoryRecord">
+        <id property="id" column="id"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="messageType" column="message_type"/>
+        <result property="content" column="content"/>
+        <result property="seq" column="seq"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, conversation_id, message_type, content, seq, create_time
+    </sql>
+
+</mapper>

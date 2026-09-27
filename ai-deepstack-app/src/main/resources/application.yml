@@ -1,0 +1,139 @@
+server:
+  port: ${SERVER_PORT:8088}
+
+spring:
+  application:
+    name: ai-deepstack-app
+  datasource:
+    # 启用 p6spy: driver=P6SpyDriver, url 前缀 jdbc:p6spy:postgresql://
+    # 关闭 p6spy: driver=org.postgresql.Driver, url 前缀 jdbc:postgresql://
+    url: jdbc:p6spy:postgresql://${DEEPSTACK_DB_HOST:localhost}:${DEEPSTACK_DB_PORT:5432}/${DEEPSTACK_DB_NAME:ai_deepstack}?currentSchema=deepstack
+    username: ${DEEPSTACK_DB_USER:postgres}
+    password: ${DEEPSTACK_DB_PASSWORD:postgres}
+    driver-class-name: com.p6spy.engine.spy.P6SpyDriver
+  data:
+    redis:
+      host: ${DEEPSTACK_REDIS_HOST:localhost}
+      port: ${DEEPSTACK_REDIS_PORT:6379}
+      password: ${DEEPSTACK_REDIS_PASSWORD:}
+  # 模型凭证来自 deepstack.ai_model；关闭 OpenAI starter 自动装配。
+  # tool-calling 关闭：GRAPH 智能体在异步线程上手动管理工具循环。
+  ai:
+    # 模型配置已全部迁移到 DB（chat_model 表），不再需要静态 openai 配置
+    # spring-ai-starter-model-openai 自动配置在无 base-url 时不会创建默认 ChatModel bean
+    # ChatModelFactory 按需构建 OpenAiChatModel 实例
+    openai:
+      api-key: placeholder
+    chat:
+      client:
+        # 关闭 ToolCallingAdvisor 自动注册（Agent 模式在 LangGraph4j 异步线程池上运行，
+        # ToolCallingAdvisor 的 reactor stream 处理在非 HTTP 线程上会抛
+        # DelegatingToolCallbackResolver: toolName cannot be null or empty）
+        # Agent 模式改为手动管理 tool loop，非 Agent 模式的 ChatServiceImpl 不受影响
+        tool-calling:
+          enabled: false
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDel
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+deepstack:
+  # S3 协议对象存储
+  s3:
+    endpoint: ${DEEPSTACK_S3_ENDPOINT:http://127.0.0.1:9000}
+    region: ${DEEPSTACK_S3_REGION:us-east-1}
+    access-key-id: ${DEEPSTACK_S3_ACCESS_KEY:deepstack}
+    secret-access-key: ${DEEPSTACK_S3_SECRET_KEY:deepstack123}
+    default-bucket: ${DEEPSTACK_S3_DEFAULT_BUCKET:ai-deepstack}
+    path-style-access: ${DEEPSTACK_S3_PATH_STYLE:true}
+  auth:
+    jwt-secret: ${DEEPSTACK_JWT_SECRET:change-me-before-production}
+    jwt-expire-hours: ${DEEPSTACK_JWT_EXPIRE_HOURS:72}
+  kb:
+    # 知识库文档桶；空则使用 deepstack.s3.default-bucket
+    bucket: ${DEEPSTACK_KB_BUCKET:ai-deepstack-kb}
+  # 知识图谱（SPI；实现包 ai-deepstack-graph-age）。运营总开关在 sys_config graph.enabled（0/1）；
+  # 此处 enabled 仅作未建库时的 yml 兜底。provider / age.* 仍为部署期配置。
+  graph:
+    enabled: ${DEEPSTACK_GRAPH_ENABLED:false}
+    provider: ${DEEPSTACK_GRAPH_PROVIDER:age}
+    age:
+      default-graph: ${DEEPSTACK_GRAPH_NAME:deepstack_kg}
+      # PROPERTY=单图+节点属性 scope；GRAPH=每 scope 一张 AGE 图
+      isolation: ${DEEPSTACK_GRAPH_ISOLATION:PROPERTY}
+  # 长期记忆。运营总开关在 sys_config memory.enabled（0/1）；此处为 yml 兜底
+  memory:
+    enabled: ${DEEPSTACK_MEMORY_ENABLED:false}
+    provider: ${DEEPSTACK_MEMORY_PROVIDER:pg}
+    graph-by-default: ${DEEPSTACK_MEMORY_GRAPH_DEFAULT:false}
+    recall:
+      max-expand-concurrency: ${DEEPSTACK_MEMORY_EXPAND_CONCURRENCY:4}
+  # 图 Checkpoint / HITL。运营开关在 sys_config checkpoint.enabled（0/1）
+  checkpoint:
+    enabled: ${DEEPSTACK_CHECKPOINT_ENABLED:true}
+    provider: ${DEEPSTACK_CHECKPOINT_PROVIDER:postgres}
+    create-tables: ${DEEPSTACK_CHECKPOINT_CREATE_TABLES:true}
+  # 工具披露。运营项在 sys_config tools.*；此处为 yml 兜底
+  tools:
+    disclosure-mode: ${DEEPSTACK_TOOLS_DISCLOSURE_MODE:off}
+    progressive-full-below: ${DEEPSTACK_TOOLS_PROGRESSIVE_FULL_BELOW:5}
+    search-top-k: ${DEEPSTACK_TOOLS_SEARCH_TOP_K:8}
+  # MCP。运营总开关在 sys_config mcp.enabled（0/1）
+  mcp:
+    enabled: ${DEEPSTACK_MCP_ENABLED:true}
+    tool-code-prefix: ${DEEPSTACK_MCP_TOOL_CODE_PREFIX:mcp_}
+    bootstrap:
+      max-concurrency: ${DEEPSTACK_MCP_BOOTSTRAP_CONCURRENCY:4}
+  # 知识库召回 / GraphRAG。运营项在 sys_config knowledge.*；此处为 yml 兜底
+  knowledge:
+    graph:
+      hops: ${DEEPSTACK_KB_GRAPH_HOPS:2}
+      max-chunks-per-extract: ${DEEPSTACK_KB_GRAPH_MAX_CHUNKS:8}
+      chat-model-code: ${DEEPSTACK_KB_GRAPH_CHAT_MODEL:}
+      graph-extra-top-k: ${DEEPSTACK_KB_GRAPH_EXTRA_TOP_K:}
+    recall:
+      max-kb-concurrency: ${DEEPSTACK_KB_RECALL_MAX_KB:4}
+      max-expand-concurrency: ${DEEPSTACK_KB_RECALL_MAX_EXPAND:8}
+      timeout-ms: ${DEEPSTACK_KB_RECALL_TIMEOUT_MS:3000}
+  # LLM HTTP 超时（CHAT / EMBEDDING Factory 共用）
+  llm:
+    connect-timeout-ms: ${DEEPSTACK_LLM_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${DEEPSTACK_LLM_READ_TIMEOUT_MS:60000}
+  # CHAT 拼 system prompt（画像/RAG/记忆）总超时
+  chat:
+    context:
+      timeout-ms: ${DEEPSTACK_CHAT_CONTEXT_TIMEOUT_MS:10000}
+
+management:
+  # 每个请求都采样，保证日志里始终有 traceId（默认 0.1 会丢掉大部分）
+  tracing:
+    sampling:
+      probability: 1.0
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  config: classpath:logback-spring.xml
+  pattern:
+    # 与 apw-life 一致：元信息一行，正文换行
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [${spring.application.name},%X{traceId:-},%X{spanId:-}] [%X{requestURI:-}] [%15.15t] %-40.40logger{39}%n%msg%n"
+  level:
+    root: INFO
+    org.deepstack.ai: ${DEEPSTACK_LOG_LEVEL:INFO}
+    org.springframework: WARN
+    org.apache.ibatis: INFO
+    com.baomidou: INFO
+    # P6Spy 走 Slf4j，默认 INFO；刷屏时改为 WARN
+    p6spy: INFO

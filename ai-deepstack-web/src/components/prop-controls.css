@@ -1,0 +1,137 @@
+/* 表单控件公共视觉（与 PropSelect 对齐） */
+.prop-ctl {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.15rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(180deg, rgba(30, 40, 58, 0.96), rgba(18, 26, 40, 0.98));
+  color: var(--ink-soft, #b7c3d9);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+.prop-ctl::placeholder {
+  color: var(--muted, #7d8ba3);
+}
+.prop-ctl:hover:not(:disabled) {
+  border-color: rgba(148, 183, 255, 0.34);
+  color: var(--ink, #e8eef8);
+}
+.prop-ctl:focus,
+.prop-ctl:focus-visible {
+  border-color: rgba(148, 183, 255, 0.48);
+  box-shadow: 0 0 0 3px rgba(78, 168, 255, 0.12);
+  color: var(--ink, #e8eef8);
+}
+.prop-ctl:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.prop-check,
+.prop-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+  font-family: var(--font-sans, inherit);
+  font-size: 0.88rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink, #e8eef8);
+  line-height: 1.35;
+}
+.prop-check.is-disabled,
+.prop-radio.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.prop-check-box,
+.prop-radio-dot {
+  position: relative;
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, rgba(30, 40, 58, 0.96), rgba(18, 26, 40, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.prop-check-box {
+  border-radius: 5px;
+}
+.prop-radio-dot {
+  border-radius: 999px;
+}
+.prop-check.is-on .prop-check-box,
+.prop-radio.is-on .prop-radio-dot {
+  border-color: rgba(78, 168, 255, 0.65);
+  background: rgba(78, 168, 255, 0.22);
+  box-shadow: 0 0 0 3px rgba(78, 168, 255, 0.12);
+}
+.prop-check-box::after {
+  content: "";
+  position: absolute;
+  left: 0.28rem;
+  top: 0.08rem;
+  width: 0.28rem;
+  height: 0.52rem;
+  border: solid #d4e4ff;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.12s ease;
+}
+.prop-check.is-on .prop-check-box::after {
+  transform: rotate(45deg) scale(1);
+}
+.prop-radio-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0.22rem;
+  border-radius: 999px;
+  background: #8eb8ff;
+  transform: scale(0);
+  transition: transform 0.12s ease;
+}
+.prop-radio.is-on .prop-radio-dot::after {
+  transform: scale(1);
+}
+.prop-check-input,
+.prop-radio-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.prop-check-text,
+.prop-radio-text {
+  min-width: 0;
+}
+
+.prop-check-group,
+.prop-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.prop-radio-group.is-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+}
+
+.prop-datetime-wrap {
+  position: relative;
+  width: 100%;
+}
+.prop-datetime-wrap .prop-ctl {
+  color-scheme: dark;
+}

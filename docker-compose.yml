@@ -1,0 +1,70 @@
+# Local dependencies for AI Deepstack (PostgreSQL + Redis + S3-compatible object storage)
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: deepstack-postgres
+    environment:
+      POSTGRES_DB: ai_deepstack
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - deepstack_pg_data:/var/lib/postgresql/data
+      - ./sql/00_deepstack_bootstrap_pg.sql:/docker-entrypoint-initdb.d/00_deepstack_bootstrap_pg.sql:ro
+      - ./sql/01_sys_config.sql:/docker-entrypoint-initdb.d/01_sys_config.sql:ro
+      - ./sql/02_agent_run_observability.sql:/docker-entrypoint-initdb.d/02_agent_run_observability.sql:ro
+      - ./sql/03_production_features.sql:/docker-entrypoint-initdb.d/03_production_features.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_deepstack"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: deepstack-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # 本地 S3 兼容对象存储（API :9000，控制台 :9001）；生产可换成任意 S3 兼容服务
+  s3:
+    image: minio/minio:latest
+    container_name: deepstack-s3
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: deepstack
+      MINIO_ROOT_PASSWORD: deepstack123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - deepstack_s3_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  s3-init:
+    image: minio/mc:latest
+    container_name: deepstack-s3-init
+    depends_on:
+      s3:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://s3:9000 deepstack deepstack123; do sleep 1; done;
+      mc mb -p local/deepstack || true;
+      echo 'S3 bucket deepstack ready';
+      "
+
+volumes:
+  deepstack_pg_data:
+  deepstack_s3_data:
