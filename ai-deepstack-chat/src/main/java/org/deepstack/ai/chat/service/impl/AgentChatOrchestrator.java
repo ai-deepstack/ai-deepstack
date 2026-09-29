@@ -79,10 +79,6 @@ public class AgentChatOrchestrator {
             return false;
         }
         AiAgent agent = aiAgentService.getByAgentCode(request.getAgentCode());
-        if (agent != null && YesNo.isYes(agent.getTemplate())) {
-            log.warn("isGraphMode: template agent rejected, agentCode={}", request.getAgentCode());
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(), "模板不可调用");
-        }
         // 正式对话走已发布图；未发布时仍可能是 GRAPH 模式（由 openSession 报错）
         boolean graph = agent != null
                 && OrchestrateModeEnum.GRAPH.matches(agent.getOrchestrateMode())
@@ -276,10 +272,6 @@ public class AgentChatOrchestrator {
             log.warn("openSession: agent not found, agentCode={}", request.getAgentCode());
             throw new BusinessException(CommonErrorCode.NOT_FOUND.getCode(),
                     "Agent not found: " + request.getAgentCode());
-        }
-        if (YesNo.isYes(agent.getTemplate())) {
-            log.warn("openSession: template agent rejected, agentCode={}", request.getAgentCode());
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(), "模板不可调用");
         }
         if (!StringUtils.hasText(agent.getPublishedGraphDefinition())) {
             log.warn("openSession: unpublished graph, agentCode={}", request.getAgentCode());

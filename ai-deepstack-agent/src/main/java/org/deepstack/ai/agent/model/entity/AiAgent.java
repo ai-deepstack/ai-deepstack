@@ -85,9 +85,6 @@ public class AiAgent implements Serializable {
     /** 已发布版本号（与乐观锁 graphVersion 独立） */
     private Integer publishedVersion;
 
-    /** 是否模板：1是（不可对话调用）0否 */
-    private Integer template;
-
     /** 智能体每秒请求上限；空=不限 */
     private Integer quotaQps;
 

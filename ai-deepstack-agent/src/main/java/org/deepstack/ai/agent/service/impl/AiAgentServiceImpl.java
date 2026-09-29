@@ -64,7 +64,6 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         return baseMapper.selectList(
                 new LambdaQueryWrapper<AiAgent>()
                         .eq(AiAgent::getEnabled, YesNo.YES.getCode())
-                        .and(w -> w.isNull(AiAgent::getTemplate).or().eq(AiAgent::getTemplate, YesNo.NO.getCode()))
                         .orderByAsc(AiAgent::getId)
         );
     }
@@ -110,7 +109,6 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         LambdaQueryWrapper<AiAgent> wrapper = new LambdaQueryWrapper<AiAgent>()
                 .eq(StringUtils.hasText(req.getModelCode()), AiAgent::getModelCode, req.getModelCode())
                 .eq(req.getEnabled() != null, AiAgent::getEnabled, req.getEnabled())
-                .and(w -> w.isNull(AiAgent::getTemplate).or().eq(AiAgent::getTemplate, YesNo.NO.getCode()))
                 .orderByDesc(AiAgent::getUpdateTime);
 
         if (StringUtils.hasText(req.getKeyword())) {
@@ -127,14 +125,54 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
 
     /**
      * {@inheritDoc}
-     * <p>agentCode 自动生成；编排模式默认 CHAT；trace 默认 RECORD。</p>
+     * <p>agentCode 始终服务端生成；名称全局唯一。有 sourceAgentId 时从源复制后覆盖请求字段，副本默认停用。</p>
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long create(AiAgentCreateRequest req) {
-        AiAgent entity = new AiAgent();
-        entity.setAgentCode(nextUniqueAgentCode());
-        entity.setAgentName(req.getAgentName());
+        String agentName = requireUniqueAgentName(req.getAgentName(), null);
+        Long sourceId = req.getSourceAgentId();
+        AiAgent entity;
+        if (sourceId != null) {
+            AiAgent source = requireAgent(sourceId);
+            entity = copyAgentShell(source, agentName);
+            applyCreateFields(entity, req, agentName);
+            entity.setEnabled(YesNo.NO.getCode());
+            entity.setPublishedGraphDefinition(null);
+            entity.setPublishedVersion(null);
+            entity.setGraphVersion(1);
+            if (!StringUtils.hasText(entity.getGraphDefinition())) {
+                entity.setGraphDefinition(source.getPublishedGraphDefinition());
+            }
+        } else {
+            entity = new AiAgent();
+            entity.setAgentCode(nextUniqueAgentCode());
+            applyCreateFields(entity, req, agentName);
+            entity.setEnabled(req.getEnabled() != null ? req.getEnabled() : YesNo.YES.getCode());
+            entity.setGraphDefinition(req.getGraphDefinition());
+            entity.setGraphVersion(1);
+            entity.setPublishedGraphDefinition(null);
+            entity.setPublishedVersion(null);
+        }
+        baseMapper.insert(entity);
+        if (sourceId != null) {
+            copyBindings(sourceId, entity.getId());
+            if (req.getKnowledgeBaseCodes() != null) {
+                bindKnowledgeBases(entity.getId(), req.getKnowledgeBaseCodes());
+            }
+        } else if (req.getKnowledgeBaseCodes() != null && !req.getKnowledgeBaseCodes().isEmpty()) {
+            bindKnowledgeBases(entity.getId(), req.getKnowledgeBaseCodes());
+        }
+        log.info("Created ai agent: id={}, agentCode={}, sourceId={}, orchestrateMode={}",
+                entity.getId(), entity.getAgentCode(), sourceId, entity.getOrchestrateMode());
+        return entity.getId();
+    }
+
+    /**
+     * 将创建请求中的可写字段落到实体（不含编码 / 发布态 / 启停策略）。
+     */
+    private void applyCreateFields(AiAgent entity, AiAgentCreateRequest req, String agentName) {
+        entity.setAgentName(agentName);
         entity.setModelCode(req.getModelCode());
         entity.setSystemPrompt(req.getSystemPrompt());
         entity.setTemperature(req.getTemperature());
@@ -144,15 +182,12 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         entity.setEnableMemory(req.getEnableMemory());
         entity.setResponseFormat(req.getResponseFormat());
         entity.setResponseSchema(req.getResponseSchema());
-        entity.setEnabled(req.getEnabled());
         entity.setOrchestrateMode(req.getOrchestrateMode() != null
                 ? req.getOrchestrateMode()
                 : org.deepstack.ai.kernel.enums.agent.OrchestrateModeEnum.CHAT.getCode());
-        entity.setGraphDefinition(req.getGraphDefinition());
-        entity.setGraphVersion(1);
-        entity.setTemplate(YesNo.NO.getCode());
-        entity.setPublishedGraphDefinition(null);
-        entity.setPublishedVersion(null);
+        if (req.getGraphDefinition() != null) {
+            entity.setGraphDefinition(req.getGraphDefinition());
+        }
         entity.setTraceMode(req.getTraceMode() != null
                 ? req.getTraceMode()
                 : org.deepstack.ai.kernel.enums.agent.TraceModeEnum.RECORD.getCode());
@@ -162,13 +197,6 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         entity.setQuotaConcurrency(positiveOrNull(req.getQuotaConcurrency()));
         entity.setQuotaDailyTokens(positiveOrNull(req.getQuotaDailyTokens()));
         entity.setHitlTimeoutMinutes(positiveOrNull(req.getHitlTimeoutMinutes()));
-        baseMapper.insert(entity);
-        if (req.getKnowledgeBaseCodes() != null && !req.getKnowledgeBaseCodes().isEmpty()) {
-            bindKnowledgeBases(entity.getId(), req.getKnowledgeBaseCodes());
-        }
-        log.info("Created ai agent: id={}, agentCode={}, orchestrateMode={}",
-                entity.getId(), entity.getAgentCode(), entity.getOrchestrateMode());
-        return entity.getId();
     }
 
     /**
@@ -181,7 +209,10 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         if (entity == null) {
             throw new IllegalArgumentException("智能体不存在: id=" + req.getId());
         }
-        if (req.getAgentName() != null) entity.setAgentName(req.getAgentName());
+        if (req.getAgentName() != null) {
+            String name = requireUniqueAgentName(req.getAgentName(), req.getId());
+            entity.setAgentName(name);
+        }
         if (req.getModelCode() != null) entity.setModelCode(req.getModelCode());
         if (req.getSystemPrompt() != null) entity.setSystemPrompt(req.getSystemPrompt());
         if (req.getTemperature() != null) entity.setTemperature(req.getTemperature());
@@ -253,73 +284,16 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
     }
 
     /**
-     * {@inheritDoc}
-     */
-    @Override
-    public IPage<AiAgent> pageTemplates(AiAgentPageRequest req) {
-        log.info("pageTemplates: pageNum={}, pageSize={}, keyword={}",
-                req.getPageNum(), req.getPageSize(), req.getKeyword());
-        LambdaQueryWrapper<AiAgent> wrapper = new LambdaQueryWrapper<AiAgent>()
-                .eq(AiAgent::getTemplate, YesNo.YES.getCode())
-                .eq(StringUtils.hasText(req.getModelCode()), AiAgent::getModelCode, req.getModelCode())
-                .eq(req.getEnabled() != null, AiAgent::getEnabled, req.getEnabled())
-                .orderByDesc(AiAgent::getUpdateTime);
-        if (StringUtils.hasText(req.getKeyword())) {
-            wrapper.and(w -> w.like(AiAgent::getAgentCode, req.getKeyword())
-                    .or()
-                    .like(AiAgent::getAgentName, req.getKeyword()));
-        }
-        if (StringUtils.hasText(req.getAgentCode())) {
-            wrapper.like(AiAgent::getAgentCode, req.getAgentCode());
-        }
-        return baseMapper.selectPage(new Page<>(req.getPageNum(), req.getPageSize()), wrapper);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Long saveAsTemplate(Long sourceId, String agentCode, String agentName) {
-        AiAgent source = requireAgent(sourceId);
-        AiAgent copy = copyAgentShell(source, agentCode, agentName, true);
-        baseMapper.insert(copy);
-        copyBindings(source.getId(), copy.getId());
-        log.info("saveAsTemplate: sourceId={}, templateId={}, code={}", sourceId, copy.getId(), copy.getAgentCode());
-        return copy.getId();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Long createFromTemplate(Long templateId, String agentCode, String agentName) {
-        AiAgent template = requireAgent(templateId);
-        if (!YesNo.isYes(template.getTemplate())) {
-            log.warn("createFromTemplate: 非模板 agentId={}", templateId);
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(), "源记录不是模板智能体");
-        }
-        AiAgent copy = copyAgentShell(template, agentCode, agentName, false);
-        baseMapper.insert(copy);
-        copyBindings(template.getId(), copy.getId());
-        log.info("createFromTemplate: templateId={}, agentId={}, code={}", templateId, copy.getId(), copy.getAgentCode());
-        return copy.getId();
-    }
-
-    /**
-     * 复制智能体配置壳（不含 id / 绑定）；模板与普通智能体字段差异由 {@code asTemplate} 控制。
+     * 复制智能体配置壳（不含 id / 绑定）；编码服务端生成，默认停用、清空发布态。
      *
-     * @param source     源实体
-     * @param agentCode  新编码（可空自动生成）
-     * @param agentName  新名称（可空沿用）
-     * @param asTemplate true=模板行；false=普通智能体
+     * @param source    源实体
+     * @param agentName 已校验唯一的新名称
      * @return 未落库的新实体
      */
-    private AiAgent copyAgentShell(AiAgent source, String agentCode, String agentName, boolean asTemplate) {
+    private AiAgent copyAgentShell(AiAgent source, String agentName) {
         AiAgent copy = new AiAgent();
-        copy.setAgentCode(resolveNewAgentCode(agentCode));
-        copy.setAgentName(StringUtils.hasText(agentName) ? agentName.trim() : source.getAgentName());
+        copy.setAgentCode(nextUniqueAgentCode());
+        copy.setAgentName(agentName);
         copy.setSystemPrompt(source.getSystemPrompt());
         copy.setModelCode(source.getModelCode());
         copy.setTemperature(source.getTemperature());
@@ -343,12 +317,10 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         copy.setGraphVersion(1);
         copy.setPublishedGraphDefinition(null);
         copy.setPublishedVersion(null);
-        // 草稿优先用源草稿；无草稿时用已发布定义作为草稿
         String draft = StringUtils.hasText(source.getGraphDefinition())
                 ? source.getGraphDefinition()
                 : source.getPublishedGraphDefinition();
         copy.setGraphDefinition(draft);
-        copy.setTemplate(asTemplate ? YesNo.YES.getCode() : YesNo.NO.getCode());
         return copy;
     }
 
@@ -380,21 +352,27 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
     }
 
     /**
-     * 解析新 agentCode：有值则校验唯一，否则自动生成。
+     * 校验智能体名称全局唯一（trim 后精确匹配）。
      *
-     * @param agentCode 请求编码
-     * @return 可用编码
+     * @param agentName 名称
+     * @param excludeId 更新时排除自身；新建传 null
+     * @return trim 后的名称
      */
-    private String resolveNewAgentCode(String agentCode) {
-        if (!StringUtils.hasText(agentCode)) {
-            return nextUniqueAgentCode();
+    private String requireUniqueAgentName(String agentName, Long excludeId) {
+        if (!StringUtils.hasText(agentName)) {
+            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(), "智能体名称不能为空");
         }
-        String code = agentCode.trim();
-        Long count = baseMapper.selectCount(new LambdaQueryWrapper<AiAgent>().eq(AiAgent::getAgentCode, code));
+        String name = agentName.trim();
+        LambdaQueryWrapper<AiAgent> wrapper = new LambdaQueryWrapper<AiAgent>()
+                .eq(AiAgent::getAgentName, name);
+        if (excludeId != null) {
+            wrapper.ne(AiAgent::getId, excludeId);
+        }
+        Long count = baseMapper.selectCount(wrapper);
         if (count != null && count > 0) {
-            throw new BusinessException(CommonErrorCode.CONFLICT.getCode(), "智能体编码已存在: " + code);
+            throw new BusinessException(CommonErrorCode.CONFLICT.getCode(), "智能体名称已存在");
         }
-        return code;
+        return name;
     }
 
     /**

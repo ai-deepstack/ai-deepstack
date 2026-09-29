@@ -1,6 +1,6 @@
 -- ====================================================================
 -- 03_production_features.sql
--- F1–F9 生产功能：轨迹脱敏配置、配额、图发布、HITL 超时、告警、模板、模型可见性
+-- F1–F9 生产功能：轨迹脱敏配置、配额、图发布、HITL 超时、告警、模型可见性
 -- 前置：00_deepstack_bootstrap_pg.sql、01_sys_config.sql
 -- 可重复执行：ADD COLUMN IF NOT EXISTS / ON CONFLICT DO NOTHING
 -- ====================================================================
@@ -44,11 +44,8 @@ UPDATE deepstack.ai_user
 COMMENT ON COLUMN deepstack.ai_user.is_admin IS '是否管理员：1是 0否（可改公共模型与看全部私有密钥脱敏）';
 
 -- --------------------------------------------------------------------
--- F2 / F3 / F4 / F7：ai_agent 配额、发布图、HITL 超时、模板
+-- F2 / F3 / F4：ai_agent 配额、发布图、HITL 超时
 -- --------------------------------------------------------------------
-ALTER TABLE deepstack.ai_agent
-    ADD COLUMN IF NOT EXISTS template SMALLINT NOT NULL DEFAULT 0;
-
 ALTER TABLE deepstack.ai_agent
     ADD COLUMN IF NOT EXISTS published_graph_definition JSONB;
 
@@ -75,7 +72,6 @@ UPDATE deepstack.ai_agent
    AND graph_definition IS NOT NULL
    AND published_graph_definition IS NULL;
 
-COMMENT ON COLUMN deepstack.ai_agent.template IS '是否模板：1是（不可 /api/chat 调用）0否';
 COMMENT ON COLUMN deepstack.ai_agent.published_graph_definition IS '已发布图定义；/api/chat GRAPH 只跑此字段';
 COMMENT ON COLUMN deepstack.ai_agent.published_version IS '已发布版本号（与乐观锁 graph_version 独立）';
 COMMENT ON COLUMN deepstack.ai_agent.quota_qps IS '智能体每秒请求上限；空=不限';
@@ -83,9 +79,9 @@ COMMENT ON COLUMN deepstack.ai_agent.quota_concurrency IS '智能体并发运行
 COMMENT ON COLUMN deepstack.ai_agent.quota_daily_tokens IS '智能体每日 token 上限；空=不限';
 COMMENT ON COLUMN deepstack.ai_agent.hitl_timeout_minutes IS 'HITL 等待超时分钟；空则用全局配置';
 
-CREATE INDEX IF NOT EXISTS idx_ai_agent_template
-    ON deepstack.ai_agent (template)
-    WHERE is_del = 0 AND template = 1;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_ai_agent_name_active
+    ON deepstack.ai_agent (agent_name)
+    WHERE is_del = 0;
 
 -- --------------------------------------------------------------------
 -- F3：图版本历史（发布快照，供回滚）
@@ -157,89 +153,9 @@ ON CONFLICT (config_key) DO UPDATE SET
         ELSE deepstack.sys_config.config_value
     END;
 
--- --------------------------------------------------------------------
--- F7：公共模板种子（复制后启用；不可 /api/chat）
--- --------------------------------------------------------------------
-INSERT INTO deepstack.ai_agent (
-    id, agent_code, agent_name, system_prompt, model_code,
-    temperature, max_tokens, top_p, memory_max_messages, enable_memory,
-    response_format, enabled, orchestrate_mode, graph_definition, graph_version,
-    published_graph_definition, published_version, template,
-    trace_mode, stream_progress, creator, create_time, update_time
-)
-SELECT
-    1900010000000000101,
-    'tpl_chat',
-    '模板 · 纯对话',
-    'You are a helpful assistant. Answer clearly and concisely.',
-    m.model_code,
-    0.70, 2048, 0.90, 20, 1,
-    0, 0, 0, NULL, 1,
-    NULL, NULL, 1,
-    1, 0, 'system', NOW(), NOW()
-FROM deepstack.ai_model m
-WHERE m.model_code = 'demo-openai-chat'
-ON CONFLICT (agent_code) DO NOTHING;
-
-INSERT INTO deepstack.ai_agent (
-    id, agent_code, agent_name, system_prompt, model_code,
-    temperature, max_tokens, top_p, memory_max_messages, enable_memory,
-    response_format, enabled, orchestrate_mode, graph_definition, graph_version,
-    published_graph_definition, published_version, template,
-    trace_mode, stream_progress, creator, create_time, update_time
-)
-SELECT
-    1900010000000000102,
-    'tpl_rag',
-    '模板 · 对话+知识库',
-    'You are a helpful assistant with knowledge-base grounding. Prefer cited facts when available; say when unsure.',
-    m.model_code,
-    0.50, 2048, 0.90, 20, 1,
-    0, 0, 0, NULL, 1,
-    NULL, NULL, 1,
-    1, 0, 'system', NOW(), NOW()
-FROM deepstack.ai_model m
-WHERE m.model_code = 'demo-openai-chat'
-ON CONFLICT (agent_code) DO NOTHING;
-
-INSERT INTO deepstack.ai_agent (
-    id, agent_code, agent_name, system_prompt, model_code,
-    temperature, max_tokens, top_p, memory_max_messages, enable_memory,
-    response_format, enabled, orchestrate_mode, graph_definition, graph_version,
-    published_graph_definition, published_version, template,
-    trace_mode, stream_progress, creator, create_time, update_time
-)
-SELECT
-    1900010000000000103,
-    'tpl_graph_confirm',
-    '模板 · 图编排+确认卡',
-    'You are a GRAPH agent that asks for human confirmation before finishing.',
-    m.model_code,
-    0.70, 2048, 0.90, 20, 1,
-    0, 0, 1,
-    '{
-      "nodes": [
-        {"id": "node_start", "type": "start-node", "text": "Start", "properties": {"outputVar": "user_message"}},
-        {"id": "node_llm", "type": "llm-node", "text": "LLM", "properties": {"systemPrompt": "Summarize the user request briefly.", "temperature": 0.5, "outputVar": "summary"}},
-        {"id": "node_gate", "type": "card-gate-node", "text": "确认", "properties": {"title": "请确认后继续", "contentVar": "summary", "outputVar": "confirmed"}},
-        {"id": "node_end", "type": "end-node", "text": "End", "properties": {"outputVar": "summary"}}
-      ],
-      "edges": [
-        {"id": "e1", "sourceNodeId": "node_start", "targetNodeId": "node_llm", "properties": {}},
-        {"id": "e2", "sourceNodeId": "node_llm", "targetNodeId": "node_gate", "properties": {}},
-        {"id": "e3", "sourceNodeId": "node_gate", "targetNodeId": "node_end", "properties": {}}
-      ],
-      "variables": {}
-    }'::jsonb,
-    1, NULL, NULL, 1,
-    1, 1, 'system', NOW(), NOW()
-FROM deepstack.ai_model m
-WHERE m.model_code = 'demo-openai-chat'
-ON CONFLICT (agent_code) DO NOTHING;
-
 COMMIT;
 
 DO $$
 BEGIN
-    RAISE NOTICE '03_production_features complete: model visibility, agent publish/quota/template, graph versions, alerts, sys_config seeds, tpl_* templates.';
+    RAISE NOTICE '03_production_features complete: model visibility, agent publish/quota, graph versions, alerts, sys_config seeds, agent name unique.';
 END $$;

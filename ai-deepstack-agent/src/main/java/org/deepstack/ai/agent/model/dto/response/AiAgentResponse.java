@@ -64,9 +64,6 @@ public class AiAgentResponse implements Serializable {
     /** 已发布版本号 */
     private Integer publishedVersion;
 
-    /** 是否模板：1是 0否 */
-    private Integer template;
-
     /** 智能体每秒请求上限；空=不限 */
     private Integer quotaQps;
 

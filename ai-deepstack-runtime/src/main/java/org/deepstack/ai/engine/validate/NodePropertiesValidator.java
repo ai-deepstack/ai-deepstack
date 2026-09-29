@@ -20,8 +20,7 @@ public final class NodePropertiesValidator {
      * Value：必填属性名列表。
      */
     private static final Map<String, List<String>> REQUIRED_PROPERTIES = Map.ofEntries(
-            Map.entry("intent-node", List.of("modelCode", "categories")),
-            Map.entry("llm-node", List.of("modelCode")),
+            Map.entry("intent-node", List.of("categories")),
             Map.entry("rag-node", List.of("knowledgeBaseCodes")),
             Map.entry("tool-node", List.of("toolId")),
             Map.entry("condition-node", List.of("conditionExpression")),

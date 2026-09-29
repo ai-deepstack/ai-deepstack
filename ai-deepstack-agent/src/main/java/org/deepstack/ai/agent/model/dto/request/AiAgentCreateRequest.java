@@ -13,10 +13,19 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 智能体新建请求
+ * 智能体新建请求。
+ * <p>
+ * {@code agentCode} 由服务端生成，请求体勿传。复制时传 {@link #sourceAgentId}，
+ * 配置以源为准再被本请求字段覆盖；新副本默认停用。
+ * </p>
  */
 @Data
 public class AiAgentCreateRequest implements Serializable {
+
+    /**
+     * 复制来源智能体主键；空表示空白新建。
+     */
+    private Long sourceAgentId;
 
     @NotBlank(message = "智能体名称不能为空")
     @Size(max = 128, message = "智能体名称长度不能超过 128")

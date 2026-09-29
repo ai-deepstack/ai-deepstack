@@ -6,7 +6,7 @@
 
 相关：[`ROADMAP.md`](../ROADMAP.md)、[`agent-observability.md`](agent-observability.md)。
 
-已有库补齐：`psql -f sql/03_production_features.sql`（前置 `01` / `02`）。新库 compose 会按 `00→03` 执行。
+已有库补齐：`psql -f sql/03_production_features.sql`（前置 `01` / `02`）；删 `template` 列与历史 `tpl_*`：`psql -f sql/04_agent_copy_no_template.sql`。新库 compose 按 `00→03`（无模板列）。
 
 ---
 
@@ -20,7 +20,7 @@
 | F4 | HITL 超时 | 已实现 |
 | F5 | 告警 | 已实现 |
 | F6 | 节点级指标 | 已实现 |
-| F7 | Agent 模板 / 子图复制 | 已实现 |
+| F7 | 智能体复制 / 子图片段 | 已实现 |
 | F8 | 评测导出 | 已实现 |
 | F9 | 公共 / 私有模型 | 已实现 |
 | F10 | 智能体自身统计 | 已实现 |
@@ -60,9 +60,9 @@
 
 `WorkflowCompiler` 在节点完成处上报 `agent.node.duration`（标签 agent / type / status）。
 
-### F7 Agent 模板 / 子图复制
+### F7 智能体复制 / 子图片段
 
-`ai_agent.template=1`；模板库复制；另存为模板；种子 `tpl_chat` / `tpl_rag` / `tpl_graph_confirm`。复制出草稿、默认停用。`insert-fragment` 插入子图并重写节点 id。
+列表「复制」→ 新建编辑页预填源配置（编码不展示，后端生成）→ 保存时 `POST /api/agents` 带 `sourceAgentId`；名称全局唯一；新副本默认停用、清空发布态，并拷贝工具/知识库绑定。图编排里 `insert-fragment` 插入子图并重写节点 id（与复制无关）。
 
 ### F8 评测导出
 

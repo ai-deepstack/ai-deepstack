@@ -10,7 +10,7 @@
 | **编排** | Agent 属性：`CHAT`（直连模型+工具+RAG）或 `GRAPH`（`graphDefinition` 内嵌 LangGraph） |
 | **画布 / 试跑** | 挂在 Agent 下：`GET/PUT /api/agents/{id}/graph`、`POST .../graph/test` |
 | **节点类型 / 工具 / 模型 / 知识库** | 平台级目录，供多个 Agent 引用 |
-| **复用** | 高级能力用「从模板复制 / 子图库」；不做共享 Workflow 实体外键绑定 |
+| **复用** | 列表「复制」进入新建编辑（`sourceAgentId`）；图内 `insert-fragment` 插子图；不做模板实体 / 共享 Workflow 外键 |
 
 原则：配置与编排在同一 Agent 资源上版本化；调用方只认识 Agent。
 
@@ -38,6 +38,6 @@
 
 ## Phase 3
 
-- [ ] Agent 模板 / 子图复用（复制而非共享绑定）
+- [x] Agent 复制创建（`sourceAgentId`）+ 名称全局唯一；子图 `insert-fragment`
 - [ ] 多租户 / API Key 对外通道
 - [ ] 微服务拆分（按需）

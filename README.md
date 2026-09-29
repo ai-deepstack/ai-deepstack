@@ -4,6 +4,8 @@
 
 Java 21，Spring Boot 4.1.1，Spring AI 2.0.1，LangGraph4j 1.8.x。
 
+**项目介绍（必要性 · 优势 · 详细架构 · 配图）：** [`docs/project-introduction.md`](docs/project-introduction.md)
+
 ## 本地跑起来
 
 需要 JDK 21、Maven 3.9+、Docker。前端单独开发时再加 Node 20。
@@ -98,7 +100,7 @@ JDBC 固定 `currentSchema=deepstack`。默认用 P6Spy 打单行 SQL（`spy.pro
 
 ## 模块
 
-包根 `org.deepstack.ai`。分层习惯见 [`docs/core-packages.md`](docs/core-packages.md)。运营配置中心见 [`docs/sys-config.md`](docs/sys-config.md)。知识库图谱增强见 [`docs/knowledge-graph-rag.md`](docs/knowledge-graph-rag.md)。
+包根 `org.deepstack.ai`。分层习惯见 [`docs/core-packages.md`](docs/core-packages.md)。运营配置中心见 [`docs/sys-config.md`](docs/sys-config.md)。知识库图谱增强见 [`docs/knowledge-graph-rag.md`](docs/knowledge-graph-rag.md)。对外技术文章系列见 [`docs/articles/README.md`](docs/articles/README.md)。
 
 
 | 模块                       | 做什么                                   |

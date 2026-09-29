@@ -30,4 +30,9 @@ public class GraphSpec implements Serializable {
     private Integer version;
 
     private Integer enabled;
+
+    /**
+     * 智能体级默认模型编码；llm/intent 节点未配置 modelCode 时由编译器回填。
+     */
+    private String defaultModelCode;
 }

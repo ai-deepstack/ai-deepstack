@@ -379,10 +379,6 @@ public class ChatServiceImpl implements ChatService {
             throw new BusinessException(CommonErrorCode.NOT_FOUND.getCode(),
                     "智能体不存在或已禁用: " + request.getAgentCode());
         }
-        if (YesNo.isYes(scene.getTemplate())) {
-            log.warn("prepare 失败: 模板不可调用 agentCode={}", request.getAgentCode());
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(), "模板不可调用");
-        }
         if (!StringUtils.hasText(scene.getModelCode())) {
             log.warn("prepare 失败: 智能体未绑定模型 agentCode={}", request.getAgentCode());
             throw new BusinessException(CommonErrorCode.INVALID_PARAM.getCode(),

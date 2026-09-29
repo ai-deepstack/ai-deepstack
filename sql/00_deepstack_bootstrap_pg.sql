@@ -89,7 +89,6 @@ CREATE TABLE IF NOT EXISTS deepstack.ai_agent (
     graph_version           INT          DEFAULT 1,
     published_graph_definition JSONB,
     published_version       INT,
-    template                SMALLINT     NOT NULL DEFAULT 0,
     quota_qps               INT,
     quota_concurrency       INT,
     quota_daily_tokens      INT,
@@ -599,7 +598,6 @@ COMMENT ON COLUMN deepstack.ai_agent.graph_definition IS 'GRAPH 模式图定义�
 COMMENT ON COLUMN deepstack.ai_agent.graph_version IS '图定义草稿乐观锁版本号';
 COMMENT ON COLUMN deepstack.ai_agent.published_graph_definition IS '已发布图定义；/api/chat GRAPH 只跑此字段';
 COMMENT ON COLUMN deepstack.ai_agent.published_version IS '已发布版本号（与乐观锁 graph_version 独立）';
-COMMENT ON COLUMN deepstack.ai_agent.template IS '是否模板：1是（不可 /api/chat 调用）0否';
 COMMENT ON COLUMN deepstack.ai_agent.quota_qps IS '智能体每秒请求上限；空=不限';
 COMMENT ON COLUMN deepstack.ai_agent.quota_concurrency IS '智能体并发运行上限；空=不限';
 COMMENT ON COLUMN deepstack.ai_agent.quota_daily_tokens IS '智能体每日 token 上限；空=不限';
@@ -899,7 +897,7 @@ INSERT INTO deepstack.agent_node_type (type_code, label, icon, category, default
  -1, -1, 2, 1),
 ('llm-node', '大模型', 'el-icon-chat-dot-round', 'ai',
  '{"systemPrompt":"你是一个智能助手","temperature":0.7,"outputVar":"response"}',
- '[{"key":"modelCode","label":"对话模型","widget":"select","required":true,"optionsSource":"CHAT_MODEL","placeholder":"选择对话模型"},{"key":"systemPrompt","label":"系统提示词","widget":"textarea","required":true,"defaultValue":"你是一个智能助手","placeholder":"系统提示词"},{"key":"temperature","label":"温度","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~2.0"},{"key":"inputVars","label":"输入变量","widget":"json","required":false,"placeholder":"变量名数组"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"response","placeholder":"结果写入的变量名"}]',
+ '[{"key":"modelCode","label":"对话模型","widget":"select","required":false,"optionsSource":"CHAT_MODEL","placeholder":"空=用智能体默认模型"},{"key":"systemPrompt","label":"系统提示词","widget":"textarea","required":true,"defaultValue":"你是一个智能助手","placeholder":"系统提示词"},{"key":"temperature","label":"温度","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~2.0"},{"key":"inputVars","label":"输入变量","widget":"json","required":false,"placeholder":"变量名数组"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"response","placeholder":"结果写入的变量名"}]',
  -1, 1, 3, 1),
 ('rag-node', '知识检索', 'el-icon-reading', 'ai',
  '{"topK":5,"similarityThreshold":0.7,"outputVar":"rag_context"}',
@@ -942,7 +940,7 @@ WHERE type_code = 'intent-node';
 UPDATE deepstack.agent_node_type SET
   label = '大模型',
   default_props = '{"systemPrompt":"你是一个智能助手","temperature":0.7,"outputVar":"response"}',
-  property_fields = '[{"key":"modelCode","label":"对话模型","widget":"select","required":true,"optionsSource":"CHAT_MODEL","placeholder":"选择对话模型"},{"key":"systemPrompt","label":"系统提示词","widget":"textarea","required":true,"defaultValue":"你是一个智能助手","placeholder":"系统提示词"},{"key":"temperature","label":"温度","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~2.0"},{"key":"inputVars","label":"输入变量","widget":"json","required":false,"placeholder":"变量名数组"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"response","placeholder":"结果写入的变量名"}]',
+  property_fields = '[{"key":"modelCode","label":"对话模型","widget":"select","required":false,"optionsSource":"CHAT_MODEL","placeholder":"空=用智能体默认模型"},{"key":"systemPrompt","label":"系统提示词","widget":"textarea","required":true,"defaultValue":"你是一个智能助手","placeholder":"系统提示词"},{"key":"temperature","label":"温度","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~2.0"},{"key":"inputVars","label":"输入变量","widget":"json","required":false,"placeholder":"变量名数组"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"response","placeholder":"结果写入的变量名"}]',
   update_time = NOW()
 WHERE type_code = 'llm-node';
 UPDATE deepstack.agent_node_type SET
@@ -1073,7 +1071,7 @@ INSERT INTO deepstack.ai_agent (
     temperature, max_tokens, top_p, memory_max_messages, enable_memory,
     response_format, enabled, enable_long_term_memory, enable_graph_memory,
     orchestrate_mode, graph_definition, graph_version,
-    published_graph_definition, published_version, template,
+    published_graph_definition, published_version,
     trace_mode, stream_progress,
     creator, create_time, update_time
 )
@@ -1088,7 +1086,7 @@ SELECT
     '{
       "nodes": [
         {"id": "node_start", "type": "start-node", "text": "Start", "properties": {"outputVar": "user_message"}},
-        {"id": "node_llm", "type": "llm-node", "text": "LLM", "properties": {"systemPrompt": "You are a helpful AI assistant for the AI Deepstack demo.", "temperature": 0.7, "outputVar": "response"}},
+        {"id": "node_llm", "type": "llm-node", "text": "LLM", "properties": {"modelCode": "demo-openai-chat", "systemPrompt": "You are a helpful AI assistant for the AI Deepstack demo.", "temperature": 0.7, "outputVar": "response"}},
         {"id": "node_end", "type": "end-node", "text": "End", "properties": {"outputVar": "response"}}
       ],
       "edges": [
@@ -1101,7 +1099,7 @@ SELECT
     '{
       "nodes": [
         {"id": "node_start", "type": "start-node", "text": "Start", "properties": {"outputVar": "user_message"}},
-        {"id": "node_llm", "type": "llm-node", "text": "LLM", "properties": {"systemPrompt": "You are a helpful AI assistant for the AI Deepstack demo.", "temperature": 0.7, "outputVar": "response"}},
+        {"id": "node_llm", "type": "llm-node", "text": "LLM", "properties": {"modelCode": "demo-openai-chat", "systemPrompt": "You are a helpful AI assistant for the AI Deepstack demo.", "temperature": 0.7, "outputVar": "response"}},
         {"id": "node_end", "type": "end-node", "text": "End", "properties": {"outputVar": "response"}}
       ],
       "edges": [
@@ -1110,7 +1108,7 @@ SELECT
       ],
       "variables": {}
     }'::jsonb,
-    1, 0,
+    1,
     1, 1,
     'system', NOW(), NOW()
 FROM ai_model m
@@ -1172,91 +1170,13 @@ CREATE TABLE IF NOT EXISTS deepstack.agent_alert_event (
 CREATE INDEX IF NOT EXISTS idx_agent_alert_fired
     ON deepstack.agent_alert_event (fired_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_ai_agent_template
-    ON deepstack.ai_agent (template)
-    WHERE is_del = 0 AND template = 1;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_ai_agent_name_active
+    ON deepstack.ai_agent (agent_name)
+    WHERE is_del = 0;
 
 CREATE INDEX IF NOT EXISTS idx_ai_model_visibility_owner
     ON deepstack.ai_model (visibility, owner_id)
     WHERE is_del = 0;
-
--- F7：公共模板种子（不可 /api/chat；复制后启用）
-INSERT INTO deepstack.ai_agent (
-    id, agent_code, agent_name, system_prompt, model_code,
-    temperature, max_tokens, top_p, memory_max_messages, enable_memory,
-    response_format, enabled, orchestrate_mode, graph_definition, graph_version,
-    published_graph_definition, published_version, template,
-    trace_mode, stream_progress, creator, create_time, update_time
-)
-SELECT
-    1900010000000000101,
-    'tpl_chat',
-    '模板 · 纯对话',
-    'You are a helpful assistant. Answer clearly and concisely.',
-    m.model_code,
-    0.70, 2048, 0.90, 20, 1,
-    0, 0, 0, NULL, 1,
-    NULL, NULL, 1,
-    1, 0, 'system', NOW(), NOW()
-FROM ai_model m
-WHERE m.model_code = 'demo-openai-chat'
-ON CONFLICT (agent_code) DO NOTHING;
-
-INSERT INTO deepstack.ai_agent (
-    id, agent_code, agent_name, system_prompt, model_code,
-    temperature, max_tokens, top_p, memory_max_messages, enable_memory,
-    response_format, enabled, orchestrate_mode, graph_definition, graph_version,
-    published_graph_definition, published_version, template,
-    trace_mode, stream_progress, creator, create_time, update_time
-)
-SELECT
-    1900010000000000102,
-    'tpl_rag',
-    '模板 · 对话+知识库',
-    'You are a helpful assistant with knowledge-base grounding. Prefer cited facts when available; say when unsure.',
-    m.model_code,
-    0.50, 2048, 0.90, 20, 1,
-    0, 0, 0, NULL, 1,
-    NULL, NULL, 1,
-    1, 0, 'system', NOW(), NOW()
-FROM ai_model m
-WHERE m.model_code = 'demo-openai-chat'
-ON CONFLICT (agent_code) DO NOTHING;
-
-INSERT INTO deepstack.ai_agent (
-    id, agent_code, agent_name, system_prompt, model_code,
-    temperature, max_tokens, top_p, memory_max_messages, enable_memory,
-    response_format, enabled, orchestrate_mode, graph_definition, graph_version,
-    published_graph_definition, published_version, template,
-    trace_mode, stream_progress, creator, create_time, update_time
-)
-SELECT
-    1900010000000000103,
-    'tpl_graph_confirm',
-    '模板 · 图编排+确认卡',
-    'You are a GRAPH agent that asks for human confirmation before finishing.',
-    m.model_code,
-    0.70, 2048, 0.90, 20, 1,
-    0, 0, 1,
-    '{
-      "nodes": [
-        {"id": "node_start", "type": "start-node", "text": "Start", "properties": {"outputVar": "user_message"}},
-        {"id": "node_llm", "type": "llm-node", "text": "LLM", "properties": {"systemPrompt": "Summarize the user request briefly.", "temperature": 0.5, "outputVar": "summary"}},
-        {"id": "node_gate", "type": "card-gate-node", "text": "确认", "properties": {"title": "请确认后继续", "contentVar": "summary", "outputVar": "confirmed"}},
-        {"id": "node_end", "type": "end-node", "text": "End", "properties": {"outputVar": "summary"}}
-      ],
-      "edges": [
-        {"id": "e1", "sourceNodeId": "node_start", "targetNodeId": "node_llm", "properties": {}},
-        {"id": "e2", "sourceNodeId": "node_llm", "targetNodeId": "node_gate", "properties": {}},
-        {"id": "e3", "sourceNodeId": "node_gate", "targetNodeId": "node_end", "properties": {}}
-      ],
-      "variables": {}
-    }'::jsonb,
-    1, NULL, NULL, 1,
-    1, 1, 'system', NOW(), NOW()
-FROM ai_model m
-WHERE m.model_code = 'demo-openai-chat'
-ON CONFLICT (agent_code) DO NOTHING;
 
 -- sys_config / 可观测列 / 生产补齐见 01、02、03（compose 会按序执行）
 
@@ -1272,7 +1192,7 @@ BEGIN
       FROM pg_tables
      WHERE schemaname = 'deepstack';
     RAISE NOTICE 'deepstack bootstrap complete. tables: %', v_tables;
-    RAISE NOTICE 'seeds: agent_node_type, ai_model(demo-openai-chat), ai_agent(demo_chat, demo_graph, tpl_*), ai_user(admin)';
+    RAISE NOTICE 'seeds: agent_node_type, ai_model(demo-openai-chat), ai_agent(demo_chat, demo_graph), ai_user(admin)';
     RAISE NOTICE 'next: sql/01_sys_config.sql + 02 + 03; set api_key on demo-openai-chat; JDBC currentSchema=deepstack';
 END $$;
 

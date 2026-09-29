@@ -186,12 +186,14 @@ public class WorkflowCompiler implements GraphRuntime {
     }
 
     /**
-     * 构建缓存键：wf:{workflowId}:{version}:{definitionHash}:{traceMode}
+     * 构建缓存键：wf:{workflowId}:{version}:{definitionHash}:{defaultModel}:{traceMode}
      */
     private String buildCacheKey(GraphSpec workflow, TraceConfig traceConfig) {
         String defHash = sha256Short(workflow.getDefinition());
         String traceMode = traceConfig != null ? traceConfig.getTraceMode() : TraceModeEnum.RECORD.name();
-        return "wf:" + workflow.getId() + ":" + workflow.getVersion() + ":" + defHash + ":" + traceMode;
+        String defaultModel = workflow.getDefaultModelCode() != null ? workflow.getDefaultModelCode() : "";
+        return "wf:" + workflow.getId() + ":" + workflow.getVersion() + ":" + defHash
+                + ":" + defaultModel + ":" + traceMode;
     }
 
     /**
@@ -254,7 +256,9 @@ public class WorkflowCompiler implements GraphRuntime {
                 String nodeId = (String) nodeDef.get("id");
                 String type = (String) nodeDef.get("type");
                 String name = (String) nodeDef.getOrDefault("name", nodeId);
-                Map<String, Object> properties = (Map<String, Object>) nodeDef.getOrDefault("properties", Map.of());
+                Map<String, Object> properties = mutableProperties(
+                        (Map<String, Object>) nodeDef.getOrDefault("properties", Map.of()));
+                applyDefaultModelCode(type, properties, workflow.getDefaultModelCode());
 
                 // 编译期校验必填属性（快速失败）
                 NodePropertiesValidator.validate(nodeId, type, properties);
@@ -643,6 +647,30 @@ public class WorkflowCompiler implements GraphRuntime {
             return n.intValue();
         }
         return null;
+    }
+
+    /** 保证节点属性可写（解析结果可能是不可变 Map）。 */
+    private static Map<String, Object> mutableProperties(Map<String, Object> properties) {
+        if (properties == null || properties.isEmpty()) {
+            return new LinkedHashMap<>();
+        }
+        return new LinkedHashMap<>(properties);
+    }
+
+    /**
+     * llm / intent 节点未配 modelCode 时，回填智能体默认模型。
+     */
+    private static void applyDefaultModelCode(String type, Map<String, Object> properties, String defaultModelCode) {
+        if (defaultModelCode == null || defaultModelCode.isBlank()) {
+            return;
+        }
+        if (!"llm-node".equals(type) && !"intent-node".equals(type)) {
+            return;
+        }
+        Object existing = properties.get("modelCode");
+        if (existing == null || (existing instanceof String s && s.isBlank())) {
+            properties.put("modelCode", defaultModelCode);
+        }
     }
 
     // ===== 状态摘�?=====

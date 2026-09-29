@@ -125,59 +125,11 @@ public class AgentController {
      */
     @PostMapping
     public Response<Long> create(@RequestBody AiAgentCreateRequest req) {
-        log.info("API create agent: name={}, orchestrateMode={}",
+        log.info("API create agent: name={}, sourceAgentId={}, orchestrateMode={}",
                 req != null ? req.getAgentName() : null,
+                req != null ? req.getSourceAgentId() : null,
                 req != null ? req.getOrchestrateMode() : null);
         return Response.success(aiAgentService.create(req));
-    }
-
-    /**
-     * 分页查询模板智能体。
-     *
-     * @param req 分页条件
-     * @return 模板分页
-     */
-    @GetMapping("/templates")
-    public Response<PageInfo<AiAgentResponse>> templates(AiAgentPageRequest req) {
-        log.info("API agents templates: pageNum={}, pageSize={}",
-                req != null ? req.getPageNum() : null,
-                req != null ? req.getPageSize() : null);
-        PageInfo<AiAgentResponse> pageInfo = PageInfoUtils.of(
-                aiAgentService.pageTemplates(req), this::toResponseWithoutModelName);
-        pageInfo.getList().forEach(this::fillKnowledgeBases);
-        return Response.success(pageInfo);
-    }
-
-    /**
-     * 另存为模板。
-     *
-     * @param id   源智能体主键
-     * @param body {@code agentCode}/{@code agentName} 可选
-     * @return 新模板主键
-     */
-    @PostMapping("/{id}/save-as-template")
-    public Response<Long> saveAsTemplate(@PathVariable("id") Long id,
-                                         @RequestBody(required = false) Map<String, Object> body) {
-        String agentCode = body != null && body.get("agentCode") != null ? String.valueOf(body.get("agentCode")) : null;
-        String agentName = body != null && body.get("agentName") != null ? String.valueOf(body.get("agentName")) : null;
-        log.info("API saveAsTemplate: sourceId={}, code={}, name={}", id, agentCode, agentName);
-        return Response.success(aiAgentService.saveAsTemplate(id, agentCode, agentName));
-    }
-
-    /**
-     * 从模板复制为普通智能体。
-     *
-     * @param templateId 模板主键
-     * @param body       {@code agentCode}/{@code agentName} 可选
-     * @return 新智能体主键
-     */
-    @PostMapping("/from-template/{templateId}")
-    public Response<Long> fromTemplate(@PathVariable("templateId") Long templateId,
-                                       @RequestBody(required = false) Map<String, Object> body) {
-        String agentCode = body != null && body.get("agentCode") != null ? String.valueOf(body.get("agentCode")) : null;
-        String agentName = body != null && body.get("agentName") != null ? String.valueOf(body.get("agentName")) : null;
-        log.info("API fromTemplate: templateId={}, code={}, name={}", templateId, agentCode, agentName);
-        return Response.success(aiAgentService.createFromTemplate(templateId, agentCode, agentName));
     }
 
     /**
@@ -270,7 +222,6 @@ public class AgentController {
         r.setGraphDefinition(s.getGraphDefinition());
         r.setGraphVersion(s.getGraphVersion());
         r.setPublishedVersion(s.getPublishedVersion());
-        r.setTemplate(s.getTemplate());
         r.setQuotaQps(s.getQuotaQps());
         r.setQuotaConcurrency(s.getQuotaConcurrency());
         r.setQuotaDailyTokens(s.getQuotaDailyTokens());

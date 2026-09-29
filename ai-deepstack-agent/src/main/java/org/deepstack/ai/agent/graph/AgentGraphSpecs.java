@@ -57,6 +57,7 @@ public final class AgentGraphSpecs {
         spec.setVersion(version);
         spec.setEnabled(agent.getEnabled());
         spec.setGraphType(GraphDefinitionKeys.GRAPH_TYPE_AGENT);
+        spec.setDefaultModelCode(agent.getModelCode());
         return spec;
     }
 }

@@ -2,10 +2,11 @@
 
 | 脚本 | 用途 |
 | --- | --- |
-| `00_deepstack_bootstrap_pg.sql` | 全量建库：扩展、schema、业务表、演示种子、模板种子 |
+| `00_deepstack_bootstrap_pg.sql` | 全量建库：扩展、schema、业务表、演示种子（`demo_chat` / `demo_graph`） |
 | `01_sys_config.sql` | **运营配置中心** `sys_config` + 种子；知识库 GraphRAG 列补齐 |
 | `02_agent_run_observability.sql` | 运行可观测列补齐（已有库） |
-| `03_production_features.sql` | F1–F9：模型可见性、发布图、配额、HITL、告警表、sys_config、模板种子 |
+| `03_production_features.sql` | F1–F9：模型可见性、发布图、配额、HITL、告警表、sys_config、名称唯一 |
+| `04_agent_copy_no_template.sql` | 已有库：删 `template` 列与 `tpl_*` 种子，补名称唯一索引 |
 
 新库按顺序执行；`docker compose` 已挂载 `00`–`03` 到 initdb。已有库按需补跑：
 
@@ -14,6 +15,7 @@ psql -U postgres -d ai_deepstack -f sql/00_deepstack_bootstrap_pg.sql
 psql -U postgres -d ai_deepstack -f sql/01_sys_config.sql
 psql -U postgres -d ai_deepstack -f sql/02_agent_run_observability.sql
 psql -U postgres -d ai_deepstack -f sql/03_production_features.sql
+psql -U postgres -d ai_deepstack -f sql/04_agent_copy_no_template.sql
 ```
 
 `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` / 种子 `ON CONFLICT`，可重复执行。
