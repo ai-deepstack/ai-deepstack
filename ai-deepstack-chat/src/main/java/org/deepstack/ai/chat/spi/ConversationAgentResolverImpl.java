@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * 按会话 ID 解析智能体编码（卡片 SPI 实现）。
+ * 按会话 ID 解析 Agent 编码（卡片 SPI 实现）。
  */
 @Slf4j
 @Component

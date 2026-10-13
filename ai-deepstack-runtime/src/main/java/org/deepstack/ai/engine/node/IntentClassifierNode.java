@@ -2,7 +2,7 @@ package org.deepstack.ai.engine.node;
 
 
 import org.deepstack.ai.runtime.AgentNodeContext;
-import org.deepstack.ai.engine.WorkflowState;
+import org.deepstack.ai.engine.api.WorkflowState;
 import org.deepstack.ai.engine.support.MessageTextExtractor;
 import org.deepstack.ai.engine.support.NodeRetryExecutor;
 import lombok.extern.slf4j.Slf4j;

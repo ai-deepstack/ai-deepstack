@@ -6,9 +6,9 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * 智能体-工具绑定请求
+ * Agent-工具绑定请求
  * <p>
- * 传入工具 id 列表，后端先删后插，保持智能体与工具的多对多绑定关系。
+ * 传入工具 id 列表，后端先删后插，保持 Agent 与工具的多对多绑定关系。
  * </p>
  *
  */
@@ -16,7 +16,7 @@ import java.util.List;
 public class AiAgentToolBindRequest implements Serializable {
 
     /**
-     * 智能体 id
+     * Agent id
      */
     private Long agentId;
 

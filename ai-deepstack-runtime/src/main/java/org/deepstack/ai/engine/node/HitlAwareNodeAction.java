@@ -1,6 +1,6 @@
 package org.deepstack.ai.engine.node;
 
-import org.deepstack.ai.engine.WorkflowState;
+import org.deepstack.ai.engine.api.WorkflowState;
 import org.bsc.langgraph4j.RunnableConfig;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.action.InterruptableAction;

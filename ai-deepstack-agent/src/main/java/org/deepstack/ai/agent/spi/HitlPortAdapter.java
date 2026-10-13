@@ -4,11 +4,11 @@ import org.deepstack.ai.agent.graph.AgentGraphSpecs;
 import org.deepstack.ai.agent.model.entity.AiAgent;
 import org.deepstack.ai.agent.observability.AgentRunService;
 import org.deepstack.ai.agent.service.AiAgentService;
-import org.deepstack.ai.engine.GraphRunRequest;
-import org.deepstack.ai.engine.GraphRunResponse;
-import org.deepstack.ai.engine.GraphSpec;
-import org.deepstack.ai.engine.TraceConfig;
-import org.deepstack.ai.runtime.GraphRuntime;
+import org.deepstack.ai.engine.api.GraphRunRequest;
+import org.deepstack.ai.engine.api.GraphRunResponse;
+import org.deepstack.ai.engine.api.GraphSpec;
+import org.deepstack.ai.engine.api.TraceConfig;
+import org.deepstack.ai.runtime.spi.GraphRuntime;
 import org.deepstack.ai.runtime.spi.HitlPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +43,7 @@ public class HitlPortAdapter implements HitlPort {
 
         AiAgent agent = aiAgentService.getByAgentCode(agentCode);
         if (agent == null || !StringUtils.hasText(agent.getGraphDefinition())) {
-            throw new IllegalStateException("智能体图定义不存在: " + agentCode);
+            throw new IllegalStateException("Agent 图定义不存在: " + agentCode);
         }
 
         GraphSpec workflow = AgentGraphSpecs.from(agent);

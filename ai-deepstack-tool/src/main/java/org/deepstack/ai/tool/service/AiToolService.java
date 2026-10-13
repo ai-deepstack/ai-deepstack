@@ -11,7 +11,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import java.util.List;
 
 /**
- * AI 工具目录服务（不含智能体绑定，绑定在 agent 编排域）。
+ * AI 工具目录服务（不含 Agent 绑定，绑定在 agent 编排域）。
  * <p>
  * 对应表 {@code ai_tool}：运行时按编码查启用工具，管理端做分页 CRUD / 启停。
  * </p>

@@ -5,7 +5,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.deepstack.ai.agent.model.entity.AiAgentGraphVersion;
 
 /**
- * 智能体图版本历史 Mapper。
+ * Agent 图版本历史 Mapper。
  */
 @Mapper
 public interface AiAgentGraphVersionMapper extends BaseMapper<AiAgentGraphVersion> {

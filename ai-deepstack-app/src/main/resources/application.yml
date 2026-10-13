@@ -17,7 +17,7 @@ spring:
       port: ${DEEPSTACK_REDIS_PORT:6379}
       password: ${DEEPSTACK_REDIS_PASSWORD:}
   # 模型凭证来自 deepstack.ai_model；关闭 OpenAI starter 自动装配。
-  # tool-calling 关闭：GRAPH 智能体在异步线程上手动管理工具循环。
+  # tool-calling 关闭：GRAPH Agent 在异步线程上手动管理工具循环。
   ai:
     # 模型配置已全部迁移到 DB（chat_model 表），不再需要静态 openai 配置
     # spring-ai-starter-model-openai 自动配置在无 base-url 时不会创建默认 ChatModel bean

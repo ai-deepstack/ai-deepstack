@@ -237,7 +237,7 @@ public class PgHybridLongTermMemoryStore implements LongTermMemoryStore {
         }
     }
 
-    /** 清空用户在指定智能体下的记忆。 */
+    /** 清空用户在指定 Agent 下的记忆。 */
     @Override
     public void clearUser(String userId, String agentCode) {
         if (!StringUtils.hasText(userId)) {

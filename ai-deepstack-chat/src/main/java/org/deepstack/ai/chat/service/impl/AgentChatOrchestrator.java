@@ -3,13 +3,13 @@ package org.deepstack.ai.chat.service.impl;
 import org.deepstack.ai.kernel.enums.common.YesNo;
 import org.deepstack.ai.kernel.enums.agent.GraphRunStatusEnum;
 import org.deepstack.ai.kernel.enums.agent.OrchestrateModeEnum;
-import org.deepstack.ai.engine.TraceConfig;
-import org.deepstack.ai.runtime.GraphRuntime;
+import org.deepstack.ai.engine.api.TraceConfig;
+import org.deepstack.ai.runtime.spi.GraphRuntime;
 import org.deepstack.ai.agent.graph.AgentGraphSpecs;
-import org.deepstack.ai.engine.GraphSpec;
-import org.deepstack.ai.engine.GraphRunRequest;
-import org.deepstack.ai.engine.GraphRunResponse;
-import org.deepstack.ai.engine.WorkflowEventTypes;
+import org.deepstack.ai.engine.api.GraphSpec;
+import org.deepstack.ai.engine.api.GraphRunRequest;
+import org.deepstack.ai.engine.api.GraphRunResponse;
+import org.deepstack.ai.engine.api.WorkflowEventTypes;
 import org.deepstack.ai.engine.support.ChatMessageKeys;
 import org.deepstack.ai.kernel.observability.AgentRunCancelReasons;
 import org.deepstack.ai.kernel.observability.AgentRunMetricNames;
@@ -50,7 +50,7 @@ import java.util.Map;
 /**
  * Agent GRAPH 编排对话器。
  * <p>
- * 由 {@link ChatServiceImpl} 在智能体 {@code orchestrateMode=GRAPH} 且配置了图定义时委托。
+ * 由 {@link ChatServiceImpl} 在 Agent {@code orchestrateMode=GRAPH} 且配置了图定义时委托。
  * 同步 / 流式路径均经 {@link AgentRunService} 落库，SSE 事件名对齐 {@link ChatSseEvents}。
  * </p>
  */
@@ -68,7 +68,7 @@ public class AgentChatOrchestrator {
     private final AgentToolBindingService agentToolBindingService;
 
     /**
-     * 判断请求是否走 GRAPH 编排（启用智能体 + GRAPH 模式 + 有图定义）。
+     * 判断请求是否走 GRAPH 编排（启用 Agent + GRAPH 模式 + 有图定义）。
      *
      * @param request 对话请求
      * @return true 表示应由本类执行
@@ -117,8 +117,14 @@ public class AgentChatOrchestrator {
 
         int latencyMs = (int) (System.currentTimeMillis() - startMs);
         GraphRunStatusEnum st = GraphRunStatusEnum.ofRequired(result.getStatus());
-        agentRunService.complete(session.runLog(), st, result.getResult(), result.getNodeExecutions(),
-                null, result.getTotalTokens(), latencyMs, result.getErrorMessage(), null);
+        try {
+            agentRunService.complete(session.runLog(), st, result.getResult(), result.getNodeExecutions(),
+                    null, result.getTotalTokens(), latencyMs, result.getErrorMessage(), null);
+        } catch (RuntimeException e) {
+            // 落库失败也要释放并发槽，否则配额被永久占住
+            finishQuota(session.loginUserId(), request.getAgentCode(), 0);
+            throw e;
+        }
         finishQuota(session.loginUserId(), request.getAgentCode(),
                 result.getTotalTokens() != null ? result.getTotalTokens() : 0);
 
@@ -260,11 +266,11 @@ public class AgentChatOrchestrator {
     }
 
     /**
-     * 打开一次 GRAPH 会话：解析智能体、会话 ID、Trace、落库 RUNNING。
+     * 打开一次 GRAPH 会话：解析 Agent、会话 ID、Trace、落库 RUNNING。
      *
      * @param request 对话请求
      * @return 会话上下文
-     * @throws BusinessException 智能体或图未配置
+     * @throws BusinessException Agent 或图未配置
      */
     private GraphSession openSession(ChatRequest request) {
         AiAgent agent = aiAgentService.getByAgentCode(request.getAgentCode());
@@ -283,6 +289,26 @@ public class AgentChatOrchestrator {
         agentQuotaService.acquireOrReject(loginUserId, agent, OrchestrateModeEnum.GRAPH,
                 conversationId, request.getMessage());
 
+        // 配额已占用；后续初始化失败必须释放，否则该 agent/账号的并发槽会永久占住
+        try {
+            return buildSession(agent, request, loginUserId, conversationId);
+        } catch (RuntimeException e) {
+            finishQuota(loginUserId, agent.getAgentCode(), 0);
+            throw e;
+        }
+    }
+
+    /**
+     * 配额占用成功后组装图会话（校验已在前置步骤完成）。
+     *
+     * @param agent          Agent
+     * @param request        对话请求
+     * @param loginUserId    登录用户 id
+     * @param conversationId 会话 ID
+     * @return 图会话
+     */
+    private GraphSession buildSession(AiAgent agent, ChatRequest request,
+                                      Long loginUserId, String conversationId) {
         chatConversationService.getOrCreate(conversationId, agent.getAgentCode(), request.getUserId());
 
         GraphSpec workflow = AgentGraphSpecs.fromPublished(agent);
@@ -316,7 +342,7 @@ public class AgentChatOrchestrator {
      * 释放并发占位并记录日 token。
      *
      * @param loginUserId 登录用户
-     * @param agentCode   智能体编码
+     * @param agentCode   Agent 编码
      * @param tokens      本轮 token
      */
     private void finishQuota(Long loginUserId, String agentCode, int tokens) {
@@ -412,9 +438,9 @@ public class AgentChatOrchestrator {
     }
 
     /**
-     * 按智能体记忆开关解析会话 ID。
+     * 按 Agent 记忆开关解析会话 ID。
      *
-     * @param agent     智能体
+     * @param agent     Agent
      * @param requested 请求携带的会话 ID
      * @return 最终会话 ID
      */

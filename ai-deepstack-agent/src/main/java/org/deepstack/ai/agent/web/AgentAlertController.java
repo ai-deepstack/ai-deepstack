@@ -20,7 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 智能体告警 API：列表 / 确认。
+ * Agent 告警 API：列表 / 确认。
  */
 @Slf4j
 @RestController

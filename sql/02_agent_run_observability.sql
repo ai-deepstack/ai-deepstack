@@ -1,4 +1,4 @@
--- 智能体运行可观测列（已有库补齐；新库亦可重复执行）
+-- Agent 运行可观测列（已有库补齐；新库亦可重复执行）
 ALTER TABLE deepstack.agent_workflow_run
     ADD COLUMN IF NOT EXISTS agent_code VARCHAR(64);
 ALTER TABLE deepstack.agent_workflow_run

@@ -3,25 +3,20 @@ package org.deepstack.ai.card.service.impl;
 import org.deepstack.ai.card.model.dto.request.CardActionRequest;
 import org.deepstack.ai.card.model.dto.response.CardActionResponse;
 import org.deepstack.ai.card.model.dto.response.ChatCard;
-import org.deepstack.ai.card.service.spi.CardProcessor;
 import org.deepstack.ai.card.service.spi.CardProcessorRegistry;
-import org.deepstack.ai.card.model.entity.ChatCardActionEntity;
 import org.deepstack.ai.card.model.entity.ChatCardEntity;
-import org.deepstack.ai.card.mapper.ChatCardActionMapper;
 import org.deepstack.ai.card.mapper.ChatCardMapper;
 import org.deepstack.ai.card.service.ChatCardService;
 import org.deepstack.ai.kernel.enums.card.CardActionTypeEnum;
 import org.deepstack.ai.kernel.enums.card.ChatCardStatusEnum;
 import org.deepstack.ai.kernel.enums.agent.GraphRunStatusEnum;
 import java.util.Objects;
-import org.deepstack.ai.card.spi.AgentModelResolver;
 import org.deepstack.ai.card.spi.ConversationAgentResolver;
-import org.deepstack.ai.engine.GraphRunRequest;
-import org.deepstack.ai.engine.GraphRunResponse;
-import org.deepstack.ai.engine.WorkflowState;
+import org.deepstack.ai.engine.api.GraphRunRequest;
+import org.deepstack.ai.engine.api.GraphRunResponse;
+import org.deepstack.ai.engine.api.WorkflowState;
 import org.deepstack.ai.kernel.exception.BusinessException;
 import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
-import org.deepstack.ai.runtime.RunContext;
 import org.deepstack.ai.runtime.spi.HitlPort;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -40,11 +34,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
  * 对话卡片服务实现。
+ * <p>
+ * 本类只保留对外 API（CRUD/查询）与动作分派：校验卡片归属/状态/过期后，按 confirm/edit/reject
+ * 分流到流式或同步处理器，并编排 SSE 流骨架与 HITL resume。真正的落库细节委托给
+ * {@link ChatCardLandingService}，reject 后的 LLM 重生成委托给 {@link ChatCardRegenerationService}。
+ * </p>
  * <p>
  * confirm/edit/reject 先落地卡片状态；若卡片带 threadId 且 {@link HitlPort} 可用，则恢复图执行。
  * 无 threadId 时保持仅落地（reject 仍走 LLM 重生成）。
@@ -59,13 +57,11 @@ public class ChatCardServiceImpl implements ChatCardService {
     private static final int DEFAULT_HISTORY_LIMIT = 10;
 
     private final ChatCardMapper chatCardMapper;
-    private final ChatCardActionMapper chatCardActionMapper;
     private final CardProcessorRegistry cardProcessorRegistry;
-    private final org.deepstack.ai.infra.llm.AiChatClientFactory aiChatClientFactory;
-    private final AgentModelResolver agentModelResolver;
     private final ConversationAgentResolver conversationSceneResolver;
-    private final org.deepstack.ai.runtime.spi.ToolPort toolPort;
     private final ObjectProvider<HitlPort> hitlPort;
+    private final ChatCardLandingService chatCardLandingService;
+    private final ChatCardRegenerationService chatCardRegenerationService;
 
     /**
      * 持久化对话卡片（生成 cardId / 默认 PENDING / 过期时间）。
@@ -79,11 +75,10 @@ public class ChatCardServiceImpl implements ChatCardService {
                 card.getCardType(), card.getUserId(), card.getConversationId());
         ChatCardEntity entity = toEntity(card);
         if (!StringUtils.hasText(entity.getThreadId())) {
-            String tid = RunContext.peekThreadId();
-            if (StringUtils.hasText(tid)) {
-                entity.setThreadId(tid);
-                card.setThreadId(tid);
-            }
+            // 不再回退读 RunContext：调用方（工具）已通过 ToolContext 显式传入 threadId，
+            // 缺了说明没接上，宁可留空也不要依赖可能跑到别的线程上的请求上下文
+            log.warn("saveCard 未带 threadId: cardType={}, userId={}；HITL resume 可能找不到 checkpoint",
+                    card.getCardType(), card.getUserId());
         }
         if (entity.getCardId() == null) {
             entity.setCardId("card_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16));
@@ -281,12 +276,11 @@ public class ChatCardServiceImpl implements ChatCardService {
      * @param request 动作请求
      * @return SSE 事件流
      */
-    @Transactional(rollbackFor = Exception.class)
     protected Flux<ServerSentEvent<Object>> handleConfirmStream(ChatCardEntity entity, CardActionRequest request) {
         log.info("handleConfirmStream: cardId={}, cardType={}", entity.getCardId(), entity.getCardType());
         Object bizResult;
         try {
-            bizResult = landConfirm(entity, request.getUserId());
+            bizResult = chatCardLandingService.landConfirm(entity, request.getUserId());
         } catch (BusinessException e) {
             return emitError(e.getMessage());
         } catch (Exception e) {
@@ -305,12 +299,11 @@ public class ChatCardServiceImpl implements ChatCardService {
      * edit 路径切到 EDITED 中间态后再切到 CONFIRMED，两步都用乐观锁。
      * </p>
      */
-    @Transactional(rollbackFor = Exception.class)
     private Flux<ServerSentEvent<Object>> handleEditStream(ChatCardEntity entity, CardActionRequest request) {
         log.info("handleEditStream: cardId={}, cardType={}", entity.getCardId(), entity.getCardType());
         Object bizResult;
         try {
-            bizResult = landEdit(entity, request);
+            bizResult = chatCardLandingService.landEdit(entity, request);
         } catch (BusinessException e) {
             return emitError(e.getMessage());
         } catch (Exception e) {
@@ -330,14 +323,13 @@ public class ChatCardServiceImpl implements ChatCardService {
      * LLM 失败会自动重试一次，仍失败则 emit {@code message} 错误文案（不再使用本地假数据）。
      * </p>
      */
-    @Transactional(rollbackFor = Exception.class)
     private Flux<ServerSentEvent<Object>> handleRejectStream(ChatCardEntity entity, CardActionRequest request) {
         long t0 = System.currentTimeMillis();
         log.info("[REGEN-PERF] handleRejectStream START: cardId={}, t0={}", entity.getCardId(), t0);
 
         long t2;
         try {
-            t2 = landReject(entity, request.getUserId(), t0);
+            t2 = chatCardLandingService.landReject(entity, request.getUserId(), t0);
         } catch (BusinessException e) {
             return emitError(e.getMessage());
         }
@@ -380,7 +372,7 @@ public class ChatCardServiceImpl implements ChatCardService {
         };
 
         // 异步触发 LLM 重新产出（失败重试一次，仍失败返回错误文案）
-        regenerateCardAsync(entity, cardEmitter, sink, doneRef, conversationId, agentCode);
+        chatCardRegenerationService.regenerateCardAsync(entity, cardEmitter, sink, doneRef, conversationId, agentCode);
         long t3 = System.currentTimeMillis();
         log.info("[REGEN-PERF] regenerateCardAsync dispatched: {}ms (async, non-blocking)", t3 - t2);
 
@@ -425,220 +417,6 @@ public class ChatCardServiceImpl implements ChatCardService {
          }));
     }
 
-    /**
-     * 异步通过 LLM + card tool 重新产出卡片。
-     * <p>
-     * LLM 成功 → tool 内部 {@code saveCard} + 通过 {@code cardEmitter} 推 {@code card} 事件；
-     * LLM 失败会自动重试一次，仍失败则通过 {@link #emitRegenFailure} 推错误文案。
-     * 最终 {@code sink.tryEmitComplete()} 推进 SSE 流。
-     * </p>
-     */
-    private void regenerateCardAsync(ChatCardEntity original, Consumer<ChatCard> cardEmitter,
-                                      Sinks.Many<ServerSentEvent<Object>> sink,
-                                      java.util.concurrent.atomic.AtomicBoolean doneRef,
-                                      String conversationId, String agentCode) {
-        CompletableFuture.runAsync(() -> {
-            long t0 = System.currentTimeMillis();
-            String cardType = original.getCardType();
-            String toolCode = resolveRegenToolCode(cardType);
-            log.info("[REGEN-PERF] regenerateCardAsync (async) START: t0={}, cardType={}, toolCode={}, conversationId={}, agentCode={}",
-                    t0, cardType, toolCode, conversationId, agentCode);
-            try {
-                if (toolCode == null) {
-                    log.warn("Unsupported cardType for LLM regenerate: {}", cardType);
-                    emitRegenFailure(sink, "暂不支持重新生成该类型计划，请稍后重试或换一种表达");
-                    return;
-                }
-                Double temperature = 0.95;
-                String systemPrompt = buildRegenSystemPrompt(cardType);
-                String regeneratePrompt = buildRegenUserPrompt(cardType, original.getPayload());
-                long t1 = System.currentTimeMillis();
-                log.info("[REGEN-PERF] prompt construction: {}ms", t1 - t0);
-
-                boolean llmSuccess = false;
-                for (int attempt = 1; attempt <= 2; attempt++) {
-                    long t2 = System.currentTimeMillis();
-                    log.info("[REGEN-PERF] LLM call START (attempt {}/2, httpTimeout=factory)", attempt);
-                    llmSuccess = tryRegenerateViaLlm(
-                            toolCode, systemPrompt, regeneratePrompt, temperature,
-                            conversationId, agentCode, cardEmitter, original.getUserId());
-                    long t3 = System.currentTimeMillis();
-                    log.info("[REGEN-PERF] LLM call END (attempt {}/2): {}ms, success={}",
-                            attempt, t3 - t2, llmSuccess);
-                    if (llmSuccess) {
-                        break;
-                    }
-                    if (attempt < 2) {
-                        log.warn("LLM regeneration attempt {} failed, retrying once", attempt);
-                    }
-                }
-                if (!llmSuccess) {
-                    log.warn("LLM regeneration failed after 2 attempts, emitting error message");
-                    emitRegenFailure(sink, "重新生成计划失败，请稍后重试");
-                }
-            } catch (Exception e) {
-                log.error("regenerateCardAsync failed: {}", e.getMessage(), e);
-                emitRegenFailure(sink, "重新生成计划失败，请稍后重试");
-            } finally {
-                long tEnd = System.currentTimeMillis();
-                log.info("[REGEN-PERF] regenerateCardAsync END: total={}ms", tEnd - t0);
-                if (doneRef.compareAndSet(false, true)) {
-                    sink.tryEmitComplete();
-                    log.info("[REGEN-PERF] sink.tryEmitComplete done: {}ms after async start", tEnd - t0);
-                }
-            }
-        });
-    }
-
-    /**
-     * 向 SSE 推送重新生成失败的提示文案（event=message）。
-     */
-    private void emitRegenFailure(Sinks.Many<ServerSentEvent<Object>> sink, String message) {
-        try {
-            sink.tryEmitNext(ServerSentEvent.<Object>builder()
-                    .event("message")
-                    .data(Map.of("text", message))
-                    .build());
-        } catch (Exception e) {
-            log.warn("Failed to emit regen failure message: {}", e.getMessage());
-        }
-    }
-
-    /**
-     * cardType → ToolPort tool_code（约定 {@code propose_<cardType>}）；未知类型返回 null。
-     */
-    private static String resolveRegenToolCode(String cardType) {
-        if (cardType == null || cardType.isBlank()) {
-            return null;
-        }
-        return "propose_" + cardType;
-    }
-
-    /** 构造 reject 重生成的系统提示词。 */
-    private static String buildRegenSystemPrompt(String cardType) {
-        return "请直接调用与卡片类型「" + cardType + "」对应的工具重新生成方案，不要输出解释性文本。";
-    }
-
-    /** 构造 reject 重生成的用户提示词（含原 payload 摘要）。 */
-    private static String buildRegenUserPrompt(String cardType, Map<String, Object> origPayload) {
-        Map<String, Object> p = origPayload != null ? origPayload : Map.of();
-        return "用户对原方案不满意（卡片类型=" + cardType + "，原 payload=" + p
-                + "）。请立即调用工具重新生成，不要输出任何文字说明。";
-    }
-
-    /**
-     * 尝试通过 LLM + card tool 重新产出卡片（无超时，同步阻塞）。
-     *
-     * @param toolCode     ToolPort 中的 tool_code
-     * @param systemPrompt 系统提示词
-     * @param userPrompt   用户引导消息
-     * @param temperature  温度参数
-     * @return true 如果 LLM 调用成功（无论是否触发了 tool），false 表示调用失败
-     */
-    private boolean tryRegenerateViaLlm(
-            String toolCode,
-            String systemPrompt, String userPrompt,
-            Double temperature,
-            String conversationId,
-            String agentCode,
-            java.util.function.Consumer<org.deepstack.ai.card.model.dto.response.ChatCard> cardEmitter,
-            String userId) {
-        long t0 = System.currentTimeMillis();
-        try {
-            org.springframework.ai.openai.OpenAiChatOptions.Builder optionsBuilder =
-                    org.springframework.ai.openai.OpenAiChatOptions.builder()
-                            .temperature(temperature);
-            long t1 = System.currentTimeMillis();
-            log.info("[REGEN-PERF] OpenAiChatOptions.builder: {}ms", t1 - t0);
-
-            org.springframework.ai.chat.client.ChatClient chatClient =
-                    getCachedChatClient(conversationId, agentCode);
-            long t2 = System.currentTimeMillis();
-            log.info("[REGEN-PERF] getCachedChatClient: {}ms", t2 - t1);
-
-            List<org.springframework.ai.tool.ToolCallback> cardToolCallbacks =
-                    toolPort.resolveToolCallbacksByCode(toolCode);
-            String modelCode = resolveModelCode(conversationId, agentCode);
-            java.util.Map<String, Object> toolCtxMap = new java.util.HashMap<>();
-            toolCtxMap.put(org.deepstack.ai.kernel.tool.ToolContextKeys.USER_ID, userId);
-            toolCtxMap.put(org.deepstack.ai.kernel.tool.ToolContextKeys.CONVERSATION_ID,
-                    conversationId != null ? conversationId : "");
-            if (modelCode != null) {
-                toolCtxMap.put(org.deepstack.ai.kernel.tool.ToolContextKeys.MODEL_CODE, modelCode);
-            }
-            toolCtxMap.put(org.deepstack.ai.kernel.tool.ToolContextKeys.CARD_EMITTER, cardEmitter);
-
-            long t3 = System.currentTimeMillis();
-            log.info("[REGEN-PERF] tool ready (resolveToolCallbacksByCode={}): {}ms, count={}",
-                    toolCode, t3 - t2, cardToolCallbacks.size());
-
-            log.info("[REGEN-PERF] chatClient.prompt().call() START (blocking until HTTP read timeout)");
-            chatClient.prompt()
-                    .system(systemPrompt)
-                    .user(userPrompt)
-                    .options(optionsBuilder)
-                    .tools(cardToolCallbacks)
-                    .toolContext(toolCtxMap)
-                    .call()
-                    .chatResponse();
-            long t4 = System.currentTimeMillis();
-            log.info("[REGEN-PERF] chatClient.prompt().call() END: {}ms", t4 - t3);
-
-            return true;
-        } catch (Exception e) {
-            long t4 = System.currentTimeMillis();
-            log.warn("[REGEN-PERF] tryRegenerateViaLlm FAILED after {}ms: {}", t4 - t0, e.getMessage(), e);
-            return false;
-        }
-    }
-
-    /**
-     * 按 conversationId/agentCode 解析 modelCode，经 Factory 取当前 ChatModel 再包 ChatClient。
-     * <p>
-     * 不缓存 ChatClient：外壳会握死当时的 ChatModel，模型/超时变更后 regenerate 会打到旧实例。
-     * Factory 自身已有实例缓存 + {@code AiModelChangedEvent} 失效。
-     * </p>
-     *
-     * @param conversationId 业务会话 ID
-     * @param agentCode      智能体编码（会话反查失败时兜底）
-     * @return 对应智能体的 ChatClient
-     */
-    private org.springframework.ai.chat.client.ChatClient getCachedChatClient(
-            String conversationId, String agentCode) {
-        String modelCode = resolveModelCode(conversationId, agentCode);
-        if (modelCode == null || modelCode.isBlank()) {
-            log.warn("getCachedChatClient 无法解析模型: conversationId={}, agentCode={}",
-                    conversationId, agentCode);
-            throw new BusinessException(CommonErrorCode.NOT_FOUND.getCode(),
-                    "无法解析会话对应模型: conversationId=" + conversationId
-                            + ", agentCode=" + agentCode);
-        }
-        org.springframework.ai.openai.OpenAiChatModel chatModel =
-                aiChatClientFactory.getChatModel(modelCode);
-        log.debug("getCachedChatClient: conversationId={}, agentCode={}, modelCode={}",
-                conversationId, agentCode, modelCode);
-        return org.springframework.ai.chat.client.ChatClient.builder(chatModel).build();
-    }
-
-    /**
-     * 按 conversationId 反查 scene → modelCode；失败时用 agentCode 兜底；均缺失时返回 null。
-     */
-    private String resolveModelCode(String conversationId, String agentCode) {
-        if (!isBlank(conversationId)) {
-            String resolvedScene = conversationSceneResolver.resolveAgentCode(conversationId);
-            if (resolvedScene != null) {
-                String modelCode = agentModelResolver.resolveModelCodeByAgentCode(resolvedScene);
-                if (modelCode != null) {
-                    return modelCode;
-                }
-            }
-        }
-        if (!isBlank(agentCode)) {
-            return agentModelResolver.resolveModelCodeByAgentCode(agentCode);
-        }
-        return null;
-    }
-
     /** 空串判定（null / blank）。 */
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
@@ -662,12 +440,11 @@ public class ChatCardServiceImpl implements ChatCardService {
      * @param request 动作请求
      * @return 动作结果
      */
-    @Transactional(rollbackFor = Exception.class)
     protected CardActionResponse handleConfirmSync(ChatCardEntity entity, CardActionRequest request) {
         log.info("handleConfirmSync: cardId={}, cardType={}", entity.getCardId(), entity.getCardType());
         Object bizResult;
         try {
-            bizResult = landConfirm(entity, request.getUserId());
+            bizResult = chatCardLandingService.landConfirm(entity, request.getUserId());
         } catch (Exception e) {
             if (!(e instanceof BusinessException)) {
                 log.error("ChatCard confirm persist failed (sync): cardId={}, cardType={}",
@@ -687,10 +464,9 @@ public class ChatCardServiceImpl implements ChatCardService {
      * @param request 动作请求（须含 modifiedPayload）
      * @return 动作结果
      */
-    @Transactional(rollbackFor = Exception.class)
     protected CardActionResponse handleEditSync(ChatCardEntity entity, CardActionRequest request) {
         log.info("handleEditSync: cardId={}, cardType={}", entity.getCardId(), entity.getCardType());
-        Object bizResult = landEdit(entity, request);
+        Object bizResult = chatCardLandingService.landEdit(entity, request);
         return withResume(new CardActionResponse(entity.getCardId(), ChatCardStatusEnum.CONFIRMED.getCode(),
                         ChatCardStatusEnum.CONFIRMED.getLabel(), bizResult),
                 entity, request, CardActionTypeEnum.EDIT.wireValue());
@@ -703,105 +479,12 @@ public class ChatCardServiceImpl implements ChatCardService {
      * @param request 动作请求
      * @return 动作结果
      */
-    @Transactional(rollbackFor = Exception.class)
     protected CardActionResponse handleRejectSync(ChatCardEntity entity, CardActionRequest request) {
         log.info("handleRejectSync: cardId={}, cardType={}", entity.getCardId(), entity.getCardType());
-        landReject(entity, request.getUserId(), null);
+        chatCardLandingService.landReject(entity, request.getUserId(), null);
         return withResume(new CardActionResponse(entity.getCardId(), ChatCardStatusEnum.REJECTED.getCode(),
                         ChatCardStatusEnum.REJECTED.getLabel(), null),
                 entity, request, CardActionTypeEnum.REJECT.wireValue());
-    }
-
-    // ===== 落地核心（Stream / Sync 共用） =====
-
-    /**
-     * confirm 落地：persist → PENDING→CONFIRMED → 写历史。
-     * persist 异常原样抛出；乐观锁失败抛 {@link BusinessException}。
-     */
-    private Object landConfirm(ChatCardEntity entity, String operatorId) {
-        CardProcessor processor = cardProcessorRegistry.get(entity.getCardType());
-        Object bizResult = processor.persist(entity.getPayload(), entity.getUserId());
-        int affected = chatCardMapper.updateStatusIfMatch(
-                entity.getCardId(), ChatCardStatusEnum.PENDING.getCode(), ChatCardStatusEnum.CONFIRMED.getCode());
-        if (affected == 0) {
-            log.warn("ChatCard confirm optimistic lock failed: cardId={}, currentStatus={}",
-                    entity.getCardId(), entity.getStatus());
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(),
-                    "卡片已被处理或状态已变更，无法重复确认");
-        }
-        entity.setStatus(ChatCardStatusEnum.CONFIRMED.getCode());
-        saveActionHistory(entity.getCardId(), CardActionTypeEnum.CONFIRM.getCode(), null, operatorId);
-        return bizResult;
-    }
-
-    /**
-     * edit 落地：校验 → PENDING→EDITED → 写 payload/历史 → persist → EDITED→CONFIRMED。
-     */
-    private Object landEdit(ChatCardEntity entity, CardActionRequest request) {
-        if (request.getModifiedPayload() == null) {
-            log.warn("edit 缺少 modifiedPayload: cardId={}", entity.getCardId());
-            throw new BusinessException(CommonErrorCode.MISSING_PARAM.getCode(),
-                    "edit 动作必须携带 modifiedPayload");
-        }
-        CardProcessor processor = cardProcessorRegistry.get(entity.getCardType());
-        CardProcessor.ValidationResult validation = processor.validate(request.getModifiedPayload());
-        if (!validation.valid()) {
-            throw new BusinessException(CommonErrorCode.INVALID_PARAM.getCode(),
-                    "payload 校验失败: " + validation.errorMessage());
-        }
-        int affected = chatCardMapper.updateStatusIfMatch(
-                entity.getCardId(), ChatCardStatusEnum.PENDING.getCode(), ChatCardStatusEnum.EDITED.getCode());
-        if (affected == 0) {
-            log.warn("ChatCard edit optimistic lock failed: cardId={}, currentStatus={}",
-                    entity.getCardId(), entity.getStatus());
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(),
-                    "卡片已被处理或状态已变更，无法编辑");
-        }
-        entity.setStatus(ChatCardStatusEnum.EDITED.getCode());
-        entity.setPayload(request.getModifiedPayload());
-        chatCardMapper.updateById(entity);
-        saveActionHistory(entity.getCardId(), CardActionTypeEnum.EDIT.getCode(),
-                request.getModifiedPayload(), request.getUserId());
-
-        Object bizResult = processor.persist(entity.getPayload(), entity.getUserId());
-        int affected2 = chatCardMapper.updateStatusIfMatch(
-                entity.getCardId(), ChatCardStatusEnum.EDITED.getCode(), ChatCardStatusEnum.CONFIRMED.getCode());
-        if (affected2 == 0) {
-            log.warn("ChatCard edit→confirm optimistic lock failed: cardId={}", entity.getCardId());
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(),
-                    "卡片状态变更异常，请重试");
-        }
-        entity.setStatus(ChatCardStatusEnum.CONFIRMED.getCode());
-        return bizResult;
-    }
-
-    /**
-     * reject 落地：PENDING→REJECTED → 写历史（不含 LLM 重生成 / HITL）。
-     *
-     * @param perfStartMs 流式路径传入以打 REGEN-PERF；同步传 null
-     * @return 写历史完成时的时间戳（供后续 REGEN-PERF 计算）
-     */
-    private long landReject(ChatCardEntity entity, String operatorId, Long perfStartMs) {
-        int affected = chatCardMapper.updateStatusIfMatch(
-                entity.getCardId(), ChatCardStatusEnum.PENDING.getCode(), ChatCardStatusEnum.REJECTED.getCode());
-        long t1 = System.currentTimeMillis();
-        if (perfStartMs != null) {
-            log.info("[REGEN-PERF] optimistic lock update (PENDING→REJECTED): {}ms, affected={}",
-                    t1 - perfStartMs, affected);
-        }
-        if (affected == 0) {
-            log.warn("ChatCard reject optimistic lock failed: cardId={}, currentStatus={}",
-                    entity.getCardId(), entity.getStatus());
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(),
-                    "卡片已被处理或状态已变更，无法重复拒绝");
-        }
-        entity.setStatus(ChatCardStatusEnum.REJECTED.getCode());
-        saveActionHistory(entity.getCardId(), CardActionTypeEnum.REJECT.getCode(), null, operatorId);
-        long t2 = System.currentTimeMillis();
-        if (perfStartMs != null) {
-            log.info("[REGEN-PERF] saveActionHistory: {}ms", t2 - t1);
-        }
-        return t2;
     }
 
     /**
@@ -933,18 +616,6 @@ public class ChatCardServiceImpl implements ChatCardService {
             throw new BusinessException(CommonErrorCode.SYSTEM_ERROR.getCode(),
                     "图恢复失败: " + e.getMessage());
         }
-    }
-
-    /** 写入卡片动作历史（confirm / edit / reject）。 */
-    private void saveActionHistory(String cardId, Integer action, Map<String, Object> modifiedPayload,
-                                   String operatorId) {
-        log.debug("saveActionHistory: cardId={}, action={}, operatorId={}", cardId, action, operatorId);
-        ChatCardActionEntity actionEntity = new ChatCardActionEntity();
-        actionEntity.setCardId(cardId);
-        actionEntity.setAction(action);
-        actionEntity.setModifiedPayload(modifiedPayload);
-        actionEntity.setOperatorId(operatorId);
-        chatCardActionMapper.insert(actionEntity);
     }
 
     /** 构造 SSE error 事件流。 */

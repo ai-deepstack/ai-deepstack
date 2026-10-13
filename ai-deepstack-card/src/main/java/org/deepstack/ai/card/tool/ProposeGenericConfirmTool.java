@@ -77,6 +77,8 @@ public class ProposeGenericConfirmTool {
         card.setTitle(resolvedTitle);
         card.setUserId(userId);
         card.setConversationId(conversationId);
+        // 显式带上 threadId：HITL resume 要靠它找回 checkpoint
+        card.setThreadId(str(ctx.get(ToolContextKeys.THREAD_ID)));
         card.setPayload(payload);
         card.setActions(List.of(
                 action("confirm", resolvedConfirm),

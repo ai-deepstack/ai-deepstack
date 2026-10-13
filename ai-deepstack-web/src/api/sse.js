@@ -31,23 +31,28 @@ export async function* streamSse(path, body, opts = {}) {
   const decoder = new TextDecoder()
   let buffer = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const parts = buffer.split(/\n\n/)
-    buffer = parts.pop() || ''
-    for (const part of parts) {
-      if (!part.trim() || part.startsWith(':')) continue
-      let event = 'message'
-      const dataLines = []
-      for (const raw of part.split(/\n/)) {
-        const line = raw.replace(/\r$/, '')
-        if (line.startsWith('event:')) event = line.slice(6).trim()
-        else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const parts = buffer.split(/\n\n/)
+      buffer = parts.pop() || ''
+      for (const part of parts) {
+        if (!part.trim() || part.startsWith(':')) continue
+        let event = 'message'
+        const dataLines = []
+        for (const raw of part.split(/\n/)) {
+          const line = raw.replace(/\r$/, '')
+          if (line.startsWith('event:')) event = line.slice(6).trim()
+          else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
+        }
+        yield { event, data: dataLines.join('\n') }
       }
-      yield { event, data: dataLines.join('\n') }
     }
+  } finally {
+    // 无论正常结束、抛错还是消费方提前终止，都释放底层流
+    try { await reader.cancel() } catch (_) { /* 忽略取消失败 */ }
   }
 }
 

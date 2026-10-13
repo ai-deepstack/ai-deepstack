@@ -18,8 +18,8 @@ import org.deepstack.ai.kernel.enums.knowledge.DocParseStatusEnum;
 import org.deepstack.ai.kernel.enums.knowledge.DocSourceTypeEnum;
 import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
 import org.deepstack.ai.kernel.exception.BusinessException;
-import org.deepstack.ai.kernel.file.FileInfo;
-import org.deepstack.ai.kernel.file.FileService;
+import org.deepstack.ai.storage.FileInfo;
+import org.deepstack.ai.storage.FileService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -29,6 +29,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -150,7 +152,7 @@ public class KnowledgeDocumentServiceImpl extends ServiceImpl<KnowledgeDocumentM
 
         // 触发异步处理流水线（MANUAL 跳过解析直接 embedding；URL 走完整流水线）
         log.info("create 触发异步处理: docId={}", entity.getId());
-        documentProcessor.processAsync(entity.getId());
+        triggerProcessAfterCommit(entity.getId());
 
         return entity.getId();
     }
@@ -219,7 +221,7 @@ public class KnowledgeDocumentServiceImpl extends ServiceImpl<KnowledgeDocumentM
 
         // 触发异步解析 + embedding 流水线
         log.info("uploadFile 触发异步处理: docId={}", entity.getId());
-        documentProcessor.processAsync(entity.getId());
+        triggerProcessAfterCommit(entity.getId());
 
         return entity.getId();
     }
@@ -267,7 +269,7 @@ public class KnowledgeDocumentServiceImpl extends ServiceImpl<KnowledgeDocumentM
 
         // 触发异步解析 + embedding 流水线
         log.info("createByKey 触发异步处理: docId={}", entity.getId());
-        documentProcessor.processAsync(entity.getId());
+        triggerProcessAfterCommit(entity.getId());
 
         return entity.getId();
     }
@@ -322,7 +324,7 @@ public class KnowledgeDocumentServiceImpl extends ServiceImpl<KnowledgeDocumentM
             int deleted = knowledgeChunkMapper.deleteByDocumentId(entity.getId());
             log.info("Cleared {} old chunks for re-embedding: docId={}", deleted, entity.getId());
             log.info("update 触发异步处理: docId={}", entity.getId());
-            documentProcessor.processAsync(entity.getId());
+            triggerProcessAfterCommit(entity.getId());
         }
 
         log.info("Updated knowledge document: id={}", req.getId());
@@ -361,7 +363,32 @@ public class KnowledgeDocumentServiceImpl extends ServiceImpl<KnowledgeDocumentM
         baseMapper.updateById(entity);
         log.info("Reset for re-embedding: docId={}, clearedChunks={}", id, deleted);
         log.info("reembed 触发异步处理: docId={}", id);
-        documentProcessor.processAsync(id);
+        triggerProcessAfterCommit(id);
+    }
+
+    /**
+     * 事务提交后再触发异步处理。
+     * <p>
+     * 直接在事务方法里调 {@code processAsync}，异步线程会在当前事务提交前启动，用独立连接
+     * 可能读不到刚写入的行（文档永远停在 PENDING，或按旧内容处理）。
+     * </p>
+     *
+     * @param documentId 文档 id
+     */
+    private void triggerProcessAfterCommit(Long documentId) {
+        if (documentId == null) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    documentProcessor.processAsync(documentId);
+                }
+            });
+            return;
+        }
+        documentProcessor.processAsync(documentId);
     }
 
     /** 重新抽取并写入知识图谱。 */

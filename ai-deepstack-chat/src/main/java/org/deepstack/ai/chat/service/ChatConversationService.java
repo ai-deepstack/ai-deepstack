@@ -25,7 +25,7 @@ public interface ChatConversationService extends IService<ChatConversation> {
      * 获取或创建会话：首次对话插入新记录，后续消息更新 last_message_at 和 message_count。
      *
      * @param conversationId 业务会话 ID
-     * @param agentCode      智能体编码
+     * @param agentCode      Agent 编码
      * @param userId         用户 ID（可空）
      * @return 已存在或新建的会话记录
      */

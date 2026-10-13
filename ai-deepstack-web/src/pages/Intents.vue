@@ -75,14 +75,19 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { get, pageList, post, put } from '../api/http'
+import { get, post, put } from '../api/http'
 import PropNumber from '../components/PropNumber.vue'
+import { usePageList } from '../composables/usePageList'
 import { EnabledStatus } from '../constants/enums'
 
-const list = ref([])
-const error = ref('')
 const saving = ref(false)
 const drawer = ref(false)
+
+// 列表分页、过期响应丢弃与错误展示统一交给 usePageList
+const { list, error, load } = usePageList({
+  pageSize: 200,
+  fetcher: ({ pageNum, pageSize }) => get('/api/intents/page', { pageNum, pageSize })
+})
 const form = reactive({
   id: null,
   intentCode: '',
@@ -91,16 +96,6 @@ const form = reactive({
   sortOrder: 0,
   enabled: 1
 })
-
-async function load() {
-  error.value = ''
-  try {
-    const res = await get('/api/intents/page', { pageNum: 1, pageSize: 200 })
-    list.value = pageList(res)
-  } catch (e) {
-    error.value = e.message
-  }
-}
 
 function openCreate() {
   Object.assign(form, {

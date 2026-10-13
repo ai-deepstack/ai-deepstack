@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="640" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0a1424"/>
+      <stop offset="0.45" stop-color="#12233a"/>
+      <stop offset="1" stop-color="#0c1c2e"/>
+    </linearGradient>
+    <linearGradient id="orb" x1="180" y1="60" x2="460" y2="300" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3de0c5" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#4ea8ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3de0c5" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(320 170) rotate(90) scale(180 140)">
+      <stop stop-color="#7ff5df" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#7ff5df" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#bg)"/>
+  <circle cx="320" cy="170" r="150" fill="url(#glow)"/>
+  <path d="M80 300C160 220 240 250 320 200C400 150 480 180 560 120" stroke="url(#orb)" stroke-width="2.2" opacity="0.7"/>
+  <path d="M90 250C170 190 250 210 330 170C410 130 490 150 560 100" stroke="#4ea8ff" stroke-opacity="0.25" stroke-width="1.4"/>
+  <rect x="268" y="118" width="104" height="104" rx="28" fill="rgba(14,28,44,0.72)" stroke="rgba(61,224,197,0.45)" stroke-width="1.5"/>
+  <path d="M300 150h40v12h-40zM300 174h40v12h-40zM300 198h26v12h-26z" fill="#7ff5df" opacity="0.9"/>
+  <circle cx="356" cy="156" r="7" fill="#4ea8ff"/>
+  <text x="320" y="292" text-anchor="middle" fill="#b7c3d9" font-family="Segoe UI, sans-serif" font-size="18" letter-spacing="0.18em">AI AGENT</text>
+</svg>

@@ -2,10 +2,10 @@
   <div>
     <header class="page-head">
       <div>
-        <h1>{{ agent?.agentName || '智能体统计' }}</h1>
+        <h1>{{ agent?.agentName || 'Agent 统计' }}</h1>
         <p>
           <code v-if="agent">{{ agent.agentCode }}</code>
-          只统计该智能体的运行，数据来自运行记录。
+          只统计该 Agent 的运行，数据来自运行记录。
         </p>
       </div>
       <div class="row-actions">
@@ -47,7 +47,7 @@
           </tbody>
         </table>
       </div>
-      <p v-else class="muted" style="margin: 0">该时间窗内没有运行</p>
+      <p v-else class="muted" style="margin: 0">该时间窗内暂无运行</p>
     </div>
   </div>
 </template>
@@ -111,7 +111,7 @@ async function load() {
     ])
     agent.value = agentRes.data
     overview.value = statsRes.data
-    if (!agent.value) error.value = '智能体不存在'
+    if (!agent.value) error.value = 'Agent 不存在'
   } catch (e) {
     error.value = e.message
   }

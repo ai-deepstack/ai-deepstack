@@ -16,7 +16,7 @@ public interface LongTermMemoryStore {
     String remember(MemoryWrite write);
 
     /**
-     * 按用户/智能体召回相关记忆。
+     * 按用户/Agent 召回相关记忆。
      *
      * @param query 查询条件（userId、queryText、limit 等）
      * @return 相关记忆列表（可能为空）
@@ -32,10 +32,10 @@ public interface LongTermMemoryStore {
     void forget(String userId, String memoryId);
 
     /**
-     * 清空某用户在指定智能体下的记忆；{@code agentCode} 为空则清空该用户全部。
+     * 清空某用户在指定 Agent 下的记忆；{@code agentCode} 为空则清空该用户全部。
      *
      * @param userId    用户 ID
-     * @param agentCode 智能体编码；空则不按 agent 过滤
+     * @param agentCode Agent 编码；空则不按 agent 过滤
      */
     void clearUser(String userId, String agentCode);
 

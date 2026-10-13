@@ -9,12 +9,12 @@ import org.deepstack.ai.agent.mapper.AiAgentGraphVersionMapper;
 import org.deepstack.ai.agent.mapper.AiAgentMapper;
 import org.deepstack.ai.agent.model.entity.AiAgent;
 import org.deepstack.ai.agent.model.entity.AiAgentGraphVersion;
-import org.deepstack.ai.engine.GraphSpec;
+import org.deepstack.ai.engine.api.GraphSpec;
 import org.deepstack.ai.kernel.enums.agent.OrchestrateModeEnum;
 import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
 import org.deepstack.ai.kernel.exception.BusinessException;
 import org.deepstack.ai.kernel.observability.GraphDefinitionKeys;
-import org.deepstack.ai.runtime.GraphRuntime;
+import org.deepstack.ai.runtime.spi.GraphRuntime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -185,7 +185,7 @@ public class AgentGraphServiceImpl implements AgentGraphService {
     /**
      * CHAT 模式自动切到 GRAPH（画布保存 / 插入片段时）。
      *
-     * @param agent 智能体实体
+     * @param agent Agent 实体
      */
     private void ensureGraphMode(AiAgent agent) {
         if (agent.getOrchestrateMode() == null
@@ -209,18 +209,18 @@ public class AgentGraphServiceImpl implements AgentGraphService {
     }
 
     /**
-     * 按主键加载智能体。
+     * 按主键加载 Agent。
      *
-     * @param agentId 智能体主键
+     * @param agentId Agent 主键
      * @return 实体
      * @throws BusinessException 不存在
      */
     private AiAgent requireAgent(Long agentId) {
         AiAgent agent = aiAgentMapper.selectById(agentId);
         if (agent == null) {
-            log.warn("智能体不存在: agentId={}", agentId);
+            log.warn("Agent 不存在: agentId={}", agentId);
             throw new BusinessException(CommonErrorCode.NOT_FOUND.getCode(),
-                    "智能体不存在: id=" + agentId);
+                    "Agent 不存在: id=" + agentId);
         }
         return agent;
     }

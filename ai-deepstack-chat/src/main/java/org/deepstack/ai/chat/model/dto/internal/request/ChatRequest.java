@@ -11,7 +11,7 @@ import java.io.Serializable;
 public class ChatRequest implements Serializable {
 
     /**
-     * 智能体编码（必填），对应 ai_agent.agent_code
+     * Agent 编码（必填），对应 ai_agent.agent_code
      */
     private String agentCode;
 

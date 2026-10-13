@@ -33,8 +33,13 @@ public class TrajectoryRedactor {
     private static final int DEFAULT_MAX_RESULT = 4000;
     private static final int DEFAULT_MAX_NODE_IO = 1000;
 
-    private static final Pattern PHONE = Pattern.compile("1[3-9]\\d{9}");
-    private static final Pattern API_KEY = Pattern.compile("sk-[A-Za-z0-9]{8,}");
+    private static final Pattern PHONE = Pattern.compile("(?<!\\d)1[3-9]\\d{9}(?!\\d)");
+    /** 常见密钥形态：sk- / sk_ / pk_ / rk_（含 sk-proj- / sk_live_ 等变体）、AWS、GitHub、Slack。 */
+    private static final Pattern API_KEY = Pattern.compile(
+            "\\b(?:sk|pk|rk)[-_][A-Za-z0-9_\\-]{8,}"
+                    + "|\\bAKIA[0-9A-Z]{16}\\b"
+                    + "|\\bgh[pousr]_[A-Za-z0-9]{20,}\\b"
+                    + "|\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b");
     private static final Pattern BEARER = Pattern.compile("(?i)Bearer\\s+[A-Za-z0-9._\\-+/=]+");
 
     private final SysConfigPort sysConfigPort;
@@ -92,6 +97,20 @@ public class TrajectoryRedactor {
         log.info("TrajectoryRedactor redactResult: maxLen={}, inputLen={}",
                 max, result != null ? result.length() : 0);
         return redactText(result, max);
+    }
+
+    /**
+     * 脱敏错误信息：异常文本常内嵌请求头 / 密钥 / 手机号，落库前必须同样处理。
+     *
+     * @param errorMessage 错误信息，可为 null
+     * @return 脱敏后文本
+     */
+    public String redactErrorMessage(String errorMessage) {
+        if (!isEnabled()) {
+            return errorMessage;
+        }
+        int max = sysConfigPort.getInt(SysConfigKeys.RUN_REDACT_MAX_NODE_IO, DEFAULT_MAX_NODE_IO);
+        return redactText(errorMessage, max);
     }
 
     /**

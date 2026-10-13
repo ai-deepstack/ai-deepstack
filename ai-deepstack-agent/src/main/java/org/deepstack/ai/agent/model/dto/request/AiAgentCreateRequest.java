@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 智能体新建请求。
+ * Agent 新建请求。
  * <p>
  * {@code agentCode} 由服务端生成，请求体勿传。复制时传 {@link #sourceAgentId}，
  * 配置以源为准再被本请求字段覆盖；新副本默认停用。
@@ -23,12 +23,12 @@ import java.util.List;
 public class AiAgentCreateRequest implements Serializable {
 
     /**
-     * 复制来源智能体主键；空表示空白新建。
+     * 复制来源 Agent 主键；空表示空白新建。
      */
     private Long sourceAgentId;
 
-    @NotBlank(message = "智能体名称不能为空")
-    @Size(max = 128, message = "智能体名称长度不能超过 128")
+    @NotBlank(message = "Agent 名称不能为空")
+    @Size(max = 128, message = "Agent 名称长度不能超过 128")
     private String agentName;
 
     @NotBlank(message = "关联模型编码不能为空")
@@ -78,15 +78,15 @@ public class AiAgentCreateRequest implements Serializable {
     @Size(max = 512, message = "封面图 URL 长度不能超过 512")
     private String coverUrl;
 
-    /** 智能体每秒请求上限；空=不限 */
+    /** Agent 每秒请求上限；空=不限 */
     @Min(value = 0, message = "QPS 不能为负")
     private Integer quotaQps;
 
-    /** 智能体并发运行上限；空=不限 */
+    /** Agent 并发运行上限；空=不限 */
     @Min(value = 0, message = "并发上限不能为负")
     private Integer quotaConcurrency;
 
-    /** 智能体每日 token 上限；空=不限 */
+    /** Agent 每日 token 上限；空=不限 */
     @Min(value = 0, message = "每日 token 上限不能为负")
     private Integer quotaDailyTokens;
 

@@ -10,7 +10,7 @@ import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 /**
- * 智能体-知识库关联 Mapper
+ * Agent-知识库关联 Mapper
  */
 @Mapper
 public interface AiAgentKnowledgeBaseMapper extends BaseMapper<AiAgentKnowledgeBase> {

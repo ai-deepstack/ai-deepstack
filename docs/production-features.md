@@ -20,10 +20,10 @@
 | F4 | HITL 超时 | 已实现 |
 | F5 | 告警 | 已实现 |
 | F6 | 节点级指标 | 已实现 |
-| F7 | 智能体复制 / 子图片段 | 已实现 |
+| F7 | Agent 复制 / 子图片段 | 已实现 |
 | F8 | 评测导出 | 已实现 |
 | F9 | 公共 / 私有模型 | 已实现 |
-| F10 | 智能体自身统计 | 已实现 |
+| F10 | Agent 自身统计 | 已实现 |
 
 ---
 
@@ -37,9 +37,9 @@
 
 ### F2 调用限流与配额
 
-`AgentQuotaService`：全站并发 → 智能体 QPS/并发/日 token → 登录账号 QPS/并发/日 token。超限 `429`，并 `reject` 一条 `QUOTA_EXCEEDED` 运行。
+`AgentQuotaService`：全站并发 → Agent QPS/并发/日 token → 登录账号 QPS/并发/日 token。超限 `429`，并 `reject` 一条 `QUOTA_EXCEEDED` 运行。
 
-- 智能体额度：配置抽屉里的 QPS / 并发 / 每日 token。
+- Agent 额度：配置抽屉里的 QPS / 并发 / 每日 token。
 - 账号与全站：`quota.*` 系统设置。
 
 账号 = JWT `AiUser.id`，不是对话请求里的记忆 `userId`。
@@ -50,7 +50,7 @@
 
 ### F4 HITL 超时
 
-`HitlTimeoutTask` 每 2 分钟扫描；超时后失败并错误码 `HITL_TIMEOUT`，尝试释放 checkpoint。超时优先用智能体 `hitlTimeoutMinutes`，否则 `hitl.timeout-minutes`。
+`HitlTimeoutTask` 每 2 分钟扫描；超时后失败并错误码 `HITL_TIMEOUT`，尝试释放 checkpoint。超时优先用 Agent `hitlTimeoutMinutes`，否则 `hitl.timeout-minutes`。
 
 ### F5 告警
 
@@ -58,9 +58,9 @@
 
 ### F6 节点级指标
 
-`WorkflowCompiler` 在节点完成处上报 `agent.node.duration`（标签 agent / type / status）。
+`NodeActionFactory`（节点动作包装）在节点完成处上报 `agent.node.duration`（标签 agent / type / status）。
 
-### F7 智能体复制 / 子图片段
+### F7 Agent 复制 / 子图片段
 
 列表「复制」→ 新建编辑页预填源配置（编码不展示，后端生成）→ 保存时 `POST /api/agents` 带 `sourceAgentId`；名称全局唯一；新副本默认停用、清空发布态，并拷贝工具/知识库绑定。图编排里 `insert-fragment` 插入子图并重写节点 id（与复制无关）。
 
@@ -72,9 +72,9 @@
 
 `ai_model.visibility` + `ownerId`。下拉 = 公共 + 自己的私有。管理员可改公共模型。
 
-### F10 智能体自身统计
+### F10 Agent 自身统计
 
-卡片「统计」→ `/agents/:id/stats`；数字链到该智能体运行列表。
+卡片「统计」→ `/agents/:id/stats`；数字链到该 Agent 运行列表。
 
 ---
 

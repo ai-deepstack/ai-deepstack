@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 智能体配置实体（一等公民）。
+ * Agent 配置实体（一等公民）。
  * <p>
  * {@code orchestrateMode=CHAT}：直连模型+工具+RAG；
  * {@code orchestrateMode=GRAPH}：使用 {@code graphDefinition} 编译执行 LangGraph。
@@ -29,10 +29,10 @@ public class AiAgent implements Serializable {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** 智能体编码（唯一） */
+    /** Agent 编码（唯一） */
     private String agentCode;
 
-    /** 智能体名称 */
+    /** Agent 名称 */
     private String agentName;
 
     /** 系统提示词 */
@@ -85,13 +85,13 @@ public class AiAgent implements Serializable {
     /** 已发布版本号（与乐观锁 graphVersion 独立） */
     private Integer publishedVersion;
 
-    /** 智能体每秒请求上限；空=不限 */
+    /** Agent 每秒请求上限；空=不限 */
     private Integer quotaQps;
 
-    /** 智能体并发运行上限；空=不限 */
+    /** Agent 并发运行上限；空=不限 */
     private Integer quotaConcurrency;
 
-    /** 智能体每日 token 上限；空=不限 */
+    /** Agent 每日 token 上限；空=不限 */
     private Integer quotaDailyTokens;
 
     /** HITL 等待超时分钟；空则用全局配置 */

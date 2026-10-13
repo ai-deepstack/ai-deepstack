@@ -3,7 +3,7 @@ package org.deepstack.ai.kernel.observability;
 /**
  * 配额 Redis / 进程内计数键前缀与组装。
  * <p>
- * 智能体编码统一 trim，避免 peek / hold / release 键不一致。
+ * Agent 编码统一 trim，避免 peek / hold / release 键不一致。
  * </p>
  */
 public final class AgentQuotaKeys {
@@ -22,7 +22,7 @@ public final class AgentQuotaKeys {
     }
 
     /**
-     * 规范化智能体编码（trim）；空白返回 null。
+     * 规范化 Agent 编码（trim）；空白返回 null。
      *
      * @param agentCode 原始编码
      * @return 规范化编码或 null
@@ -36,9 +36,9 @@ public final class AgentQuotaKeys {
     }
 
     /**
-     * 智能体 QPS 键。
+     * Agent QPS 键。
      *
-     * @param agentCode 智能体编码（会规范化）
+     * @param agentCode Agent 编码（会规范化）
      * @return 键；编码无效时返回 null
      */
     public static String agentQps(String agentCode) {
@@ -47,9 +47,9 @@ public final class AgentQuotaKeys {
     }
 
     /**
-     * 智能体并发键。
+     * Agent 并发键。
      *
-     * @param agentCode 智能体编码（会规范化）
+     * @param agentCode Agent 编码（会规范化）
      * @return 键；编码无效时返回 null
      */
     public static String agentConcurrency(String agentCode) {
@@ -58,9 +58,9 @@ public final class AgentQuotaKeys {
     }
 
     /**
-     * 智能体日 token 键。
+     * Agent 日 token 键。
      *
-     * @param agentCode 智能体编码（会规范化）
+     * @param agentCode Agent 编码（会规范化）
      * @param date      日期字符串，如 2026-09-21
      * @return 键；编码无效时返回 null
      */

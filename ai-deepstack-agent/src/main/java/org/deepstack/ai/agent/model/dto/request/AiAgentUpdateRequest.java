@@ -12,15 +12,15 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 智能体修改请求
+ * Agent 修改请求
  */
 @Data
 public class AiAgentUpdateRequest implements Serializable {
 
-    @NotNull(message = "智能体 id 不能为空")
+    @NotNull(message = "Agent id 不能为空")
     private Long id;
 
-    @Size(max = 128, message = "智能体名称长度不能超过 128")
+    @Size(max = 128, message = "Agent 名称长度不能超过 128")
     private String agentName;
 
     @Size(max = 64, message = "模型编码长度不能超过 64")
@@ -72,15 +72,15 @@ public class AiAgentUpdateRequest implements Serializable {
     @Size(max = 512, message = "封面图 URL 长度不能超过 512")
     private String coverUrl;
 
-    /** 智能体每秒请求上限；null=不改；传 0 表示清除限制 */
+    /** Agent 每秒请求上限；null=不改；传 0 表示清除限制 */
     @Min(value = 0, message = "QPS 不能为负")
     private Integer quotaQps;
 
-    /** 智能体并发运行上限；null=不改；传 0 表示清除限制 */
+    /** Agent 并发运行上限；null=不改；传 0 表示清除限制 */
     @Min(value = 0, message = "并发上限不能为负")
     private Integer quotaConcurrency;
 
-    /** 智能体每日 token 上限；null=不改；传 0 表示清除限制 */
+    /** Agent 每日 token 上限；null=不改；传 0 表示清除限制 */
     @Min(value = 0, message = "每日 token 上限不能为负")
     private Integer quotaDailyTokens;
 

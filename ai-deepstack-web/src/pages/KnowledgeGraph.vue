@@ -162,6 +162,8 @@ const expanding = ref(false)
 const flowNodes = ref([])
 const flowEdges = ref([])
 const selectedNode = ref(null)
+// 合并请求令牌：丢弃过期响应，避免 expand 与 reload 互相覆盖
+let mergeSeq = 0
 
 const nodeTypes = {
   kbNode: markRaw(KnowledgeGraphNode)
@@ -275,6 +277,7 @@ function onPaneClick() {
  */
 async function fetchAndMerge({ startKey, replace }) {
   if (!baseCode.value) return
+  const seq = ++mergeSeq
   const params = { hops: hops.value, limit: limit.value }
   if (startKey) {
     params.startKey = startKey
@@ -282,8 +285,8 @@ async function fetchAndMerge({ startKey, replace }) {
     params.documentId = documentId.value.trim()
   }
 
-  console.info('[kb-graph] fetch', { baseCode: baseCode.value, params, replace })
   const res = await get(`/api/kb/${encodeURIComponent(baseCode.value)}/graph`, params)
+  if (seq !== mergeSeq) return
   const data = res.data || {}
   viewMessage.value = data.message || ''
   scopeText.value = data.scope || '—'
@@ -331,11 +334,6 @@ async function fetchAndMerge({ startKey, replace }) {
   } catch (e) {
     console.warn('[kb-graph] fitView skipped', e)
   }
-  console.info('[kb-graph] merged', {
-    nodes: flowNodes.value.length,
-    edges: flowEdges.value.length,
-    addedNodes: newNodes.length
-  })
 }
 
 /**
@@ -350,7 +348,6 @@ function applyForceLayout() {
     const p = placed.get(n.id)
     return p ? { ...n, position: p } : n
   })
-  console.info('[kb-graph] force layout', { nodes: flowNodes.value.length })
 }
 
 async function loadSummary() {
@@ -361,7 +358,6 @@ async function loadSummary() {
     if (summary.value?.message && !viewMessage.value) {
       viewMessage.value = summary.value.message
     }
-    console.info('[kb-graph] summary', summary.value)
   } catch (e) {
     console.warn('[kb-graph] summary failed', e)
   }
@@ -387,7 +383,6 @@ async function expandSelected() {
   expanding.value = true
   error.value = ''
   try {
-    console.info('[kb-graph] expand neighbor', selectedNode.value.id)
     await fetchAndMerge({ startKey: selectedNode.value.id, replace: false })
   } catch (e) {
     error.value = e.message || String(e)

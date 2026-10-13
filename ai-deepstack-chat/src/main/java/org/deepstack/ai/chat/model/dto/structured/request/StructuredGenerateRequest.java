@@ -5,14 +5,14 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 通用结构化生成请求：按智能体配置调模型，强制返回 JSON 对象。
+ * 通用结构化生成请求：按 Agent 配置调模型，强制返回 JSON 对象。
  *
  */
 @Data
 public class StructuredGenerateRequest implements Serializable {
 
     /**
-     * 智能体编码；决定模型、温度、systemPrompt、responseFormat。
+     * Agent 编码；决定模型、温度、systemPrompt、responseFormat。
      */
     private String agentCode;
 

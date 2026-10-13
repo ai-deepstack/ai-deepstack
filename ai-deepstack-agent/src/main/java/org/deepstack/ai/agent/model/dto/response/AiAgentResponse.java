@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 智能体管理响应
+ * Agent 管理响应
  */
 @Data
 public class AiAgentResponse implements Serializable {
@@ -64,13 +64,13 @@ public class AiAgentResponse implements Serializable {
     /** 已发布版本号 */
     private Integer publishedVersion;
 
-    /** 智能体每秒请求上限；空=不限 */
+    /** Agent 每秒请求上限；空=不限 */
     private Integer quotaQps;
 
-    /** 智能体并发运行上限；空=不限 */
+    /** Agent 并发运行上限；空=不限 */
     private Integer quotaConcurrency;
 
-    /** 智能体每日 token 上限；空=不限 */
+    /** Agent 每日 token 上限；空=不限 */
     private Integer quotaDailyTokens;
 
     /** HITL 等待超时分钟；空则用全局配置 */

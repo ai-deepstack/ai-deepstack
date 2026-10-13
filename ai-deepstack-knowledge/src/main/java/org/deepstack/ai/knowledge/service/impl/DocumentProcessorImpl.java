@@ -17,7 +17,7 @@ import org.deepstack.ai.kernel.enums.knowledge.DocSourceTypeEnum;
 import java.util.Objects;
 import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
 import org.deepstack.ai.kernel.exception.BusinessException;
-import org.deepstack.ai.kernel.file.FileService;
+import org.deepstack.ai.storage.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tika.Tika;

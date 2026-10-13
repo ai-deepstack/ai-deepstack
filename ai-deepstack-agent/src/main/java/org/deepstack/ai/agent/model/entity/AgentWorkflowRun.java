@@ -13,7 +13,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 智能体运行记录：GRAPH 试跑/对话、CHAT 轮次共用。
+ * Agent 运行记录：GRAPH 试跑/对话、CHAT 轮次共用。
  */
 @Data
 @TableName(value = "agent_workflow_run", autoResultMap = true)
@@ -22,10 +22,10 @@ public class AgentWorkflowRun implements Serializable {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** 智能体 ID（ai_agent.id） */
+    /** Agent ID（ai_agent.id） */
     private Long agentId;
 
-    /** 智能体编码（冗余，便于列表筛选） */
+    /** Agent 编码（冗余，便于列表筛选） */
     private String agentCode;
 
     /**

@@ -30,7 +30,7 @@ import java.util.Map;
 /**
  * 通用结构化生成实现。
  * <p>
- * 流程：解析智能体 → 取模型 → 拼 system/user → 强制 JSON_OBJECT 调模型 → 解析为 Map 返回。
+ * 流程：解析 Agent → 取模型 → 拼 system/user → 强制 JSON_OBJECT 调模型 → 解析为 Map 返回。
  * 本类不做业务字段校验（如运动白名单），由调用方或场景 Prompt/JSON Schema 约束。
  * </p>
  *
@@ -49,7 +49,7 @@ public class StructuredGenerateServiceImpl implements StructuredGenerateService 
     private final AiChatClientFactory aiChatClientFactory;
 
     /**
-     * 按智能体配置调用大模型，返回解析后的 JSON 对象。
+     * 按 Agent 配置调用大模型，返回解析后的 JSON 对象。
      * <p>日志记录 agentCode / modelId / 耗时与预览，不输出密钥。</p>
      *
      * @param request 须含 agentCode；input 会序列化进 user 消息
@@ -72,7 +72,7 @@ public class StructuredGenerateServiceImpl implements StructuredGenerateService 
         AiAgent scene = aiAgentService.getByAgentCode(agentCode);
         if (scene == null || !StringUtils.hasText(scene.getModelCode())) {
             log.error("结构化生成场景不可用: agentCode={}", agentCode);
-            throw new BusinessException(CommonErrorCode.NOT_FOUND.getCode(), "未找到可用智能体: " + agentCode);
+            throw new BusinessException(CommonErrorCode.NOT_FOUND.getCode(), "未找到可用 Agent: " + agentCode);
         }
         AiModel model = aiModelService.getByModelCode(scene.getModelCode());
         if (model == null) {

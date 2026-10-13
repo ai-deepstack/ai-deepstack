@@ -1,10 +1,12 @@
 # AI DeepStack
 
-用 Spring AI 和 LangGraph4j 搭智能体：对话、图编排、工具（含 MCP）、知识库 RAG。仓库是 Maven 多模块，`ai-deepstack-app` 是可直接跑的单体（JWT + Vue 控制台）。
+用 Spring AI 和 LangGraph4j 搭 Agent：对话、图编排、工具（含 MCP）、知识库 RAG。仓库是 Maven 多模块，`ai-deepstack-app` 是可直接跑的单体（JWT + Vue 控制台）。
 
 Java 21，Spring Boot 4.1.1，Spring AI 2.0.1，LangGraph4j 1.8.x。
 
-**项目介绍（必要性 · 优势 · 详细架构 · 配图）：** [`docs/project-introduction.md`](docs/project-introduction.md)
+**项目介绍与文档站（独立仓库目录）：** 同级 [`../ai-deepstack-site`](../ai-deepstack-site)（`npm run dev` → 默认 5174）。控制台只保留演示与管理。
+
+**详细介绍文稿：** [`docs/project-introduction.md`](docs/project-introduction.md)
 
 ## 本地跑起来
 
@@ -66,7 +68,7 @@ npm run dev
 
 Vite 在 `5173`，`/api` 代理到 `8088`。
 
-种子智能体：`demo_chat`（对话）、`demo_graph`（图）。对话接口是 `POST /api/chat/send` 和 `POST /api/chat/stream`，请求体带 `agentCode`。
+种子 Agent：`demo_chat`（对话）、`demo_graph`（图）。对话接口是 `POST /api/chat/send` 和 `POST /api/chat/stream`，请求体带 `agentCode`。
 
 ## 配置
 
@@ -106,22 +108,24 @@ JDBC 固定 `currentSchema=deepstack`。默认用 P6Spy 打单行 SQL（`spy.pro
 | 模块                       | 做什么                                   |
 | ------------------------ | ------------------------------------- |
 | `ai-deepstack-kernel`    | 响应包装、异常、登录 SPI、分页、公共枚举                |
+| `ai-deepstack-storage`   | S3 兼容对象存储（AWS SDK 只在这里）                  |
 | `ai-deepstack-aimodel`   | 模型配置 CRUD                             |
 | `ai-deepstack-infra`     | 按 `model_code` 建 Chat / Embedding 客户端 |
-| `ai-deepstack-agent`     | 智能体、图定义、试跑、工具绑定、意图                    |
+| `ai-deepstack-agent`     | Agent、图定义、试跑、工具绑定、意图                    |
 | `ai-deepstack-tool`      | 工具目录、MCP 连接与同步                        |
 | `ai-deepstack-knowledge` | 知识库、文档、pgvector                       |
 | `ai-deepstack-graph`     | 图谱 SPI；`graph-age` 是 Apache AGE 实现    |
 | `ai-deepstack-memory`    | 长期记忆 SPI；`memory-pg` 是 PG 实现          |
 | `ai-deepstack-chat`      | 对话、短记忆、结构化输出                          |
 | `ai-deepstack-card`      | 对话卡片、HITL                             |
-| `ai-deepstack-runtime`   | 图编译与执行                                |
+| `ai-deepstack-runtime-api` | 图契约：SPI 端口、`GraphSpec` / `WorkflowState` 等值类型        |
+| `ai-deepstack-runtime`   | 图编译与执行、节点实现、checkpoint                     |
 | `ai-deepstack-starter`   | 给宿主工程依赖的聚合包                           |
 | `ai-deepstack-app`       | 参考单体                                  |
 | `ai-deepstack-web`       | Vue 3 控制台                             |
 
 
-图定义存在 `ai_agent.graph_definition`（`orchestrate_mode = 1`），没有单独的 workflow 表。MCP 连接在 `ai_mcp_connection`，同步进 `ai_tool`（`source_type = 1`）；智能体绑的是工具，不是连接。
+图定义存在 `ai_agent.graph_definition`（`orchestrate_mode = 1`）。MCP 连接在 `ai_mcp_connection`，同步进 `ai_tool`（`source_type = 1`）；Agent 绑的是工具，不是连接。
 
 ## 嵌进别的 Spring Boot 工程
 

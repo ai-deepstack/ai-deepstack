@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.deepstack.ai.agent.mapper.AgentWorkflowRunMapper;
 import org.deepstack.ai.agent.model.entity.AgentWorkflowRun;
-import org.deepstack.ai.engine.GraphRunResponse;
+import org.deepstack.ai.engine.api.GraphRunResponse;
 import org.deepstack.ai.kernel.enums.agent.AgentRunErrorCode;
 import org.deepstack.ai.kernel.enums.agent.GraphRunStatusEnum;
 import org.deepstack.ai.kernel.enums.agent.OrchestrateModeEnum;
@@ -27,7 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 
 /**
- * 智能体运行落库与查询（CHAT / GRAPH 共用 {@link AgentWorkflowRun}）。
+ * Agent 运行落库与查询（CHAT / GRAPH 共用 {@link AgentWorkflowRun}）。
  * <p>
  * 职责：start → complete / completeFailed / markCancelled；HITL resume 计时；
  * 运营侧 overview / page / detail 视图。指标经 {@link AgentRunMetrics} 上报。
@@ -48,8 +48,8 @@ public class AgentRunService {
     /**
      * 新建 RUNNING 记录；自动填 traceId（Micrometer MDC）。
      *
-     * @param agentId              智能体主键，可为 null
-     * @param agentCode            智能体编码
+     * @param agentId              Agent 主键，可为 null
+     * @param agentCode            Agent 编码
      * @param mode                 编排模式，不可为 null
      * @param conversationId       会话 ID
      * @param userMessage          用户原话
@@ -68,8 +68,8 @@ public class AgentRunService {
     /**
      * 新建 RUNNING 记录；可指定 creatorId（登录用户）。
      *
-     * @param agentId              智能体主键，可为 null
-     * @param agentCode            智能体编码
+     * @param agentId              Agent 主键，可为 null
+     * @param agentCode            Agent 编码
      * @param mode                 编排模式，不可为 null
      * @param conversationId       会话 ID
      * @param userMessage          用户原话
@@ -98,8 +98,8 @@ public class AgentRunService {
     /**
      * 配额拒绝：直接插入 FAILED 运行（errorCode=QUOTA_EXCEEDED）。
      *
-     * @param agentId        智能体主键，可为 null
-     * @param agentCode      智能体编码
+     * @param agentId        Agent 主键，可为 null
+     * @param agentCode      Agent 编码
      * @param mode           编排模式，不可为 null
      * @param conversationId 会话 ID
      * @param userMessage    用户原话
@@ -126,8 +126,8 @@ public class AgentRunService {
     /**
      * 组装运行行公共字段（agent / mode / trace / 脱敏 userMessage / creator）。
      *
-     * @param agentId        智能体主键
-     * @param agentCode      智能体编码
+     * @param agentId        Agent 主键
+     * @param agentCode      Agent 编码
      * @param mode           编排模式
      * @param conversationId 会话 ID
      * @param userMessage    用户原话
@@ -190,7 +190,7 @@ public class AgentRunService {
         }
         run.setTotalTokens(totalTokens != null ? totalTokens : 0);
         run.setDurationMs(durationMs);
-        run.setErrorMessage(errorMessage);
+        run.setErrorMessage(trajectoryRedactor.redactErrorMessage(errorMessage));
         if (errorCode != null) {
             run.setErrorCode(errorCode.getCode());
         } else if (st == GraphRunStatusEnum.FAILED && StringUtils.hasText(errorMessage)) {
@@ -241,7 +241,7 @@ public class AgentRunService {
      * HITL resume 包装：挂起计时 → 执行 resume → 回写终态；异常时落 FAILED 再抛出。
      *
      * @param threadId   checkpoint 线程 ID
-     * @param agentCode  智能体编码（指标标签）
+     * @param agentCode  Agent 编码（指标标签）
      * @param resumeCall 实际 resume 调用
      * @return 图运行结果
      * @throws Exception resume 失败时原样抛出（已落库 FAILED）
@@ -297,7 +297,7 @@ public class AgentRunService {
      * HITL resume：按 threadId 找到最近 WAITING_HUMAN 记录，回写等待时长并改回 RUNNING。
      *
      * @param threadId  checkpoint 线程 ID
-     * @param agentCode 智能体编码（指标标签兜底）
+     * @param agentCode Agent 编码（指标标签兜底）
      */
     private void onHitlResumed(String threadId, String agentCode) {
         if (!StringUtils.hasText(threadId)) {
@@ -378,8 +378,8 @@ public class AgentRunService {
      *
      * @param pageNum         页码（从 1 起）
      * @param pageSize        页大小
-     * @param agentId         智能体 id 过滤，可为 null
-     * @param agentCode       智能体编码过滤，可为 null
+     * @param agentId         Agent id 过滤，可为 null
+     * @param agentCode       Agent 编码过滤，可为 null
      * @param orchestrateMode 编排模式码过滤，可为 null
      * @param status          状态码过滤，可为 null
      * @param traceId         链路 id 过滤，可为 null
@@ -409,7 +409,7 @@ public class AgentRunService {
      * 概览聚合（默认近 hours 小时，上限 {@link #OVERVIEW_MAX_HOURS}）。
      *
      * @param hours           回溯小时数
-     * @param agentId         智能体 id 过滤，可为 null
+     * @param agentId         Agent id 过滤，可为 null
      * @param orchestrateMode 编排模式过滤，可为 null
      * @return KPI / Top / 趋势等 map
      */

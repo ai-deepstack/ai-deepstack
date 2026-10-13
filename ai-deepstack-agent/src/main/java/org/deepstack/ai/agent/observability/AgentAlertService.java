@@ -10,7 +10,7 @@ import org.deepstack.ai.agent.model.entity.AgentAlertEvent;
 import org.deepstack.ai.agent.model.entity.AgentWorkflowRun;
 import org.deepstack.ai.kernel.enums.agent.GraphRunStatusEnum;
 import org.deepstack.ai.kernel.enums.common.YesNo;
-import org.deepstack.ai.runtime.WorkflowCompiler;
+import org.deepstack.ai.runtime.spi.GraphRuntime;
 import org.deepstack.ai.settings.SysConfigKeys;
 import org.deepstack.ai.settings.SysConfigPort;
 import org.springframework.beans.factory.ObjectProvider;
@@ -48,7 +48,7 @@ public class AgentAlertService {
     private final AgentAlertEventMapper alertMapper;
     private final AgentWorkflowRunMapper runMapper;
     private final SysConfigPort sysConfigPort;
-    private final ObjectProvider<WorkflowCompiler> workflowCompiler;
+    private final ObjectProvider<GraphRuntime> graphRuntime;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(HTTP_CONNECT_TIMEOUT)
@@ -152,7 +152,7 @@ public class AgentAlertService {
      * 去重后落库并可选 webhook。
      *
      * @param ruleCode      规则码
-     * @param agentCode     智能体编码，可为 null
+     * @param agentCode     Agent 编码，可为 null
      * @param severity      级别
      * @param title         标题
      * @param detail        详情
@@ -230,12 +230,12 @@ public class AgentAlertService {
      * @return 在跑数
      */
     private int resolveRunningCount(List<AgentWorkflowRun> windowRows) {
-        WorkflowCompiler compiler = workflowCompiler.getIfAvailable();
-        if (compiler != null) {
+        GraphRuntime runtime = graphRuntime.getIfAvailable();
+        if (runtime != null) {
             try {
-                return compiler.getRunningExecutionCount();
+                return runtime.getRunningExecutionCount();
             } catch (Exception e) {
-                log.warn("读取 WorkflowCompiler 在跑数失败: {}", e.getMessage());
+                log.warn("读取图执行在跑数失败: {}", e.getMessage());
             }
         }
         return (int) windowRows.stream()

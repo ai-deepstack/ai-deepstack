@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 通用结构化生成 API。
  * <p>
- * 传 {@code agentCode} + {@code input}，由智能体配置决定模型与提示词，
- * 无需为每个智能体单独建 Controller。
+ * 传 {@code agentCode} + {@code input}，由 Agent 配置决定模型与提示词，
+ * 无需为每个 Agent 单独建 Controller。
  * </p>
  */
 @Slf4j
@@ -29,10 +29,10 @@ public class StructuredGenerateController {
     /**
      * 非流式结构化生成。
      * <p>
-     * 按智能体编码解析模型与提示词，将输入转为结构化 JSON。
+     * 按 Agent 编码解析模型与提示词，将输入转为结构化 JSON。
      * </p>
      *
-     * @param req 智能体编码 {@code agentCode} + 输入 {@code input}
+     * @param req Agent 编码 {@code agentCode} + 输入 {@code input}
      * @return JSON 对象结果（含 agentCode、modelCode、data）
      */
     @PostMapping("/generate")

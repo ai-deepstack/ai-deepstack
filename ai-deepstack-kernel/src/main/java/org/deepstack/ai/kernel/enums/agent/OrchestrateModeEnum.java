@@ -1,7 +1,7 @@
 package org.deepstack.ai.kernel.enums.agent;
 
 /**
- * 智能体编排模式。
+ * Agent 编排模式。
  */
 public enum OrchestrateModeEnum {
 

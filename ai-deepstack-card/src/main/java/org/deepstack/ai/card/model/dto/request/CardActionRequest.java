@@ -51,7 +51,7 @@ public class CardActionRequest implements Serializable {
     private String conversationId;
 
     /**
-     * 智能体编码（可选）。
+     * Agent 编码（可选）。
      * <p>
      * 当卡片落库时 conversationId 为空、或会话记录缺失时，用于兜底解析 modelId，
      * 保证 reject 重新生成仍能调用 AI。

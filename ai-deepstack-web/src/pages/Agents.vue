@@ -2,45 +2,16 @@
   <div>
     <header class="page-head">
       <div>
-        <h1>智能体</h1>
-        <p>创建和管理智能体，绑定模型、工具、知识库，或进入图编排。</p>
+        <h1>Agent</h1>
+        <p>创建和管理 Agent，绑定模型、工具、知识库，或进入图编排。</p>
       </div>
       <div class="row-actions">
-        <button class="btn-ghost" type="button" @click="showTemplates = !showTemplates">
-          {{ showTemplates ? '返回智能体' : '模板库' }}
-        </button>
-        <button v-if="!showTemplates" class="btn" type="button" @click="openCreate">新建智能体</button>
+        <button class="btn" type="button" @click="openCreate">新建 Agent</button>
       </div>
     </header>
 
     <p v-if="error" class="error">{{ error }}</p>
 
-    <!-- Templates -->
-    <div v-if="showTemplates">
-      <div class="panel" style="margin-bottom: 1rem">
-        <p class="muted" style="margin: 0">模板不可对话调用；可复制为新智能体后启用。</p>
-      </div>
-      <div v-if="templates.length" class="agent-card-grid">
-        <article v-for="item in templates" :key="'t' + item.id" class="agent-card is-off">
-          <div class="agent-card-body">
-            <h3 class="agent-card-title">{{ item.agentName }}</h3>
-            <code class="agent-card-code" :title="item.agentCode">编码 {{ item.agentCode }}</code>
-            <p class="agent-card-meta muted">
-              {{ item.orchestrateModeName || (item.orchestrateMode === OrchestrateMode.GRAPH ? '编排图' : '对话') }}
-              · {{ item.modelCode || '未绑定模型' }}
-            </p>
-            <div class="agent-card-actions">
-              <button class="btn-ghost" type="button" @click="copyFromTemplate(item)">复制为智能体</button>
-            </div>
-          </div>
-        </article>
-      </div>
-      <div v-else class="panel">
-        <p class="muted" style="margin: 0">暂无模板</p>
-      </div>
-    </div>
-
-    <div v-else>
     <div v-if="list.length" class="agent-card-grid">
       <article
         v-for="item in list"
@@ -72,7 +43,16 @@
             {{ item.modelName || item.modelCode || '未绑定模型' }}
           </p>
           <div class="agent-card-actions">
+            <button
+              class="btn-ghost"
+              type="button"
+              :disabled="item.enabled !== EnabledStatus.ENABLED"
+              :title="item.enabled !== EnabledStatus.ENABLED ? '请先启用再运行' : '对话试用'"
+              @click="openTry(item)"
+            >运行</button>
+            <router-link class="btn-ghost" :to="`/agents/${item.id}`">查看</router-link>
             <button class="btn-ghost" type="button" @click="openEdit(item)">配置</button>
+            <button class="btn-ghost" type="button" @click="openCopy(item)">复制</button>
             <router-link class="btn-ghost" :to="`/agents/${item.id}/stats`">统计</router-link>
             <router-link
               v-if="item.orchestrateMode === OrchestrateMode.GRAPH"
@@ -87,13 +67,12 @@
       </article>
     </div>
     <div v-else class="panel">
-      <p class="muted" style="margin: 0">暂无智能体</p>
-    </div>
+      <p class="muted" style="margin: 0">暂无 Agent</p>
     </div>
 
     <div v-if="drawer" class="drawer-mask" @click.self="closeDrawer">
       <aside class="drawer" style="width: min(640px, 100vw)">
-        <h2>{{ form.id ? '配置智能体' : '新建智能体' }}</h2>
+        <h2>{{ drawerTitle }}</h2>
         <div class="row-actions" style="margin: 0.6rem 0 1rem">
           <button
             v-for="t in tabs"
@@ -115,6 +94,9 @@
             <div class="field">
               <label>名称</label>
               <input v-model="form.agentName" />
+              <p v-if="sourceAgentId" class="muted" style="margin: 0.35rem 0 0; font-size: 0.78rem">
+                名称全局唯一，请与源 Agent 区分
+              </p>
             </div>
             <div class="field">
               <label>模型</label>
@@ -164,16 +146,14 @@
 
         <template v-else-if="tab === 'tools'">
           <p class="muted" style="margin-top: 0">勾选需要的工具后点保存。</p>
-          <div v-if="!form.id" class="muted">请先保存智能体再绑定工具</div>
-          <div v-else class="panel-quiet" style="max-height: 360px; overflow: auto; padding: 0.75rem">
+          <div class="panel-quiet" style="max-height: 360px; overflow: auto; padding: 0.75rem">
             <PropCheckboxGroup v-model="boundToolIds" :options="tools" empty-text="暂无可用工具" />
           </div>
         </template>
 
         <template v-else>
           <p class="muted" style="margin-top: 0">按 baseCode 绑定知识库</p>
-          <div v-if="!form.id" class="muted">请先保存智能体再绑定知识库</div>
-          <div v-else class="panel-quiet" style="max-height: 360px; overflow: auto; padding: 0.75rem">
+          <div class="panel-quiet" style="max-height: 360px; overflow: auto; padding: 0.75rem">
             <PropCheckboxGroup v-model="boundKbCodes" :options="kbs" empty-text="暂无知识库" />
           </div>
         </template>
@@ -181,13 +161,6 @@
         <p v-if="error" class="error">{{ error }}</p>
         <div class="drawer-actions">
           <button class="btn" type="button" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
-          <button
-            v-if="form.id"
-            class="btn-ghost"
-            type="button"
-            :disabled="saving"
-            @click="saveAsTemplate"
-          >另存为模板</button>
           <button class="btn-ghost" type="button" @click="closeDrawer">取消</button>
           <router-link
             v-if="form.id && form.orchestrateMode === OrchestrateMode.GRAPH"
@@ -198,29 +171,41 @@
         </div>
       </aside>
     </div>
+
+    <AgentTryDialog
+      :open="tryOpen"
+      :agent-code="tryAgent?.agentCode || ''"
+      :agent-name="tryAgent?.agentName || ''"
+      @close="closeTry"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { get, pageList, post, put } from '../api/http'
 import CoverImageUpload from '../components/CoverImageUpload.vue'
+import AgentTryDialog from '../components/AgentTryDialog.vue'
 import PropCheckboxGroup from '../components/PropCheckboxGroup.vue'
 import PropNumber from '../components/PropNumber.vue'
 import PropSelect from '../components/PropSelect.vue'
+import { usePageList } from '../composables/usePageList'
 import { EnabledStatus, ModelType, OrchestrateMode, orchestrateOptions } from '../constants/enums'
+import { asId, sameId } from '../utils/ids'
 
 const DEFAULT_COVER = '/agent-cover-default.svg'
 
-const list = ref([])
-const templates = ref([])
-const showTemplates = ref(false)
+const route = useRoute()
+const router = useRouter()
 const models = ref([])
 const tools = ref([])
 const kbs = ref([])
-const error = ref('')
 const saving = ref(false)
 const drawer = ref(false)
+const sourceAgentId = ref(null)
+const tryOpen = ref(false)
+const tryAgent = ref(null)
 const tab = ref('basic')
 const tabs = [
   { id: 'basic', label: '基础' },
@@ -229,6 +214,29 @@ const tabs = [
 ]
 const boundToolIds = ref([])
 const boundKbCodes = ref([])
+// 列表分页与过期响应丢弃交给 usePageList；error 由它持有，供抽屉与列表共用
+const {
+  list,
+  error,
+  load: loadPage
+} = usePageList({
+  pageSize: 100,
+  fetcher: ({ pageNum, pageSize }) =>
+    Promise.all([
+      get('/api/agents/page', { pageNum, pageSize }),
+      get('/api/models/options', { modelType: ModelType.CHAT }),
+      get('/api/tools/options'),
+      get('/api/kb/options')
+    ]),
+  onData: ([a, m, t, k]) => {
+    list.value = pageList(a)
+    models.value = m.data || []
+    tools.value = t.data || []
+    kbs.value = k.data || []
+  }
+})
+// 工具绑定请求令牌：快速切换 Agent 时丢弃过期响应
+let toolsSeq = 0
 const form = reactive({
   id: null,
   agentCode: '',
@@ -245,6 +253,11 @@ const form = reactive({
 })
 
 const modelOptions = computed(() => models.value)
+const drawerTitle = computed(() => {
+  if (form.id) return '配置 Agent'
+  if (sourceAgentId.value) return '复制 Agent'
+  return '新建 Agent'
+})
 
 function coverOf(item) {
   const url = (item?.coverUrl || '').trim()
@@ -257,27 +270,52 @@ function onCoverError(e) {
   }
 }
 
-async function load() {
-  error.value = ''
-  try {
-    const [a, m, t, k, tpl] = await Promise.all([
-      get('/api/agents/page', { pageNum: 1, pageSize: 100 }),
-      get('/api/models/options', { modelType: ModelType.CHAT }),
-      get('/api/tools/options'),
-      get('/api/kb/options'),
-      get('/api/agents/templates', { pageNum: 1, pageSize: 100 })
-    ])
-    list.value = pageList(a)
-    models.value = m.data || []
-    tools.value = t.data || []
-    kbs.value = k.data || []
-    templates.value = pageList(tpl)
-  } catch (e) {
-    error.value = e.message
+function uniqueCopyName(baseName) {
+  const root = (baseName || 'Agent').trim() || 'Agent'
+  const existing = new Set(list.value.map((x) => x.agentName))
+  let candidate = `${root} 副本`
+  if (!existing.has(candidate)) return candidate
+  for (let i = 2; i < 100; i++) {
+    candidate = `${root} 副本 ${i}`
+    if (!existing.has(candidate)) return candidate
   }
+  return `${root} 副本 ${Date.now()}`
+}
+
+async function openEditFromQuery() {
+  const editId = asId(route.query.edit)
+  if (!editId || !list.value.length) return
+  const item = list.value.find((x) => sameId(x.id, editId))
+  if (!item) return
+  await openEdit(item)
+  const q = { ...route.query }
+  delete q.edit
+  router.replace({ path: '/agents', query: q })
+}
+
+async function load() {
+  await loadPage()
+  await openEditFromQuery()
+}
+
+watch(() => route.query.edit, () => {
+  if (route.path === '/agents' && route.query.edit) openEditFromQuery()
+})
+
+function openTry(item) {
+  if (item.enabled !== EnabledStatus.ENABLED) return
+  tryAgent.value = item
+  tryOpen.value = true
+}
+
+function closeTry() {
+  tryOpen.value = false
+  tryAgent.value = null
 }
 
 function openCreate() {
+  toolsSeq++ // 使在途的工具请求失效
+  sourceAgentId.value = null
   Object.assign(form, {
     id: null,
     agentCode: '',
@@ -299,6 +337,8 @@ function openCreate() {
 }
 
 async function openEdit(item) {
+  const seq = ++toolsSeq
+  sourceAgentId.value = null
   Object.assign(form, {
     id: item.id,
     agentCode: item.agentCode,
@@ -318,14 +358,48 @@ async function openEdit(item) {
   boundKbCodes.value = (item.knowledgeBases || []).map((x) => x.baseCode)
   try {
     const res = await get(`/api/agents/${item.id}/tools`)
+    if (seq !== toolsSeq) return
     boundToolIds.value = (res.data || []).map((x) => x.toolId)
   } catch (_) {
+    if (seq !== toolsSeq) return
+    boundToolIds.value = []
+  }
+}
+
+async function openCopy(item) {
+  const seq = ++toolsSeq
+  error.value = ''
+  sourceAgentId.value = item.id
+  Object.assign(form, {
+    id: null,
+    agentCode: '',
+    agentName: uniqueCopyName(item.agentName),
+    modelCode: item.modelCode,
+    systemPrompt: item.systemPrompt || '',
+    orchestrateMode: item.orchestrateMode ?? OrchestrateMode.CHAT,
+    coverUrl: item.coverUrl || '',
+    enabled: EnabledStatus.DISABLED,
+    quotaQps: item.quotaQps ?? null,
+    quotaConcurrency: item.quotaConcurrency ?? null,
+    quotaDailyTokens: item.quotaDailyTokens ?? null,
+    hitlTimeoutMinutes: item.hitlTimeoutMinutes ?? null
+  })
+  boundKbCodes.value = (item.knowledgeBases || []).map((x) => x.baseCode)
+  tab.value = 'basic'
+  drawer.value = true
+  try {
+    const res = await get(`/api/agents/${item.id}/tools`)
+    if (seq !== toolsSeq) return
+    boundToolIds.value = (res.data || []).map((x) => x.toolId)
+  } catch (_) {
+    if (seq !== toolsSeq) return
     boundToolIds.value = []
   }
 }
 
 function closeDrawer() {
   drawer.value = false
+  sourceAgentId.value = null
 }
 
 async function save() {
@@ -343,20 +417,27 @@ async function save() {
       quotaQps: form.quotaQps || 0,
       quotaConcurrency: form.quotaConcurrency || 0,
       quotaDailyTokens: form.quotaDailyTokens || 0,
-      hitlTimeoutMinutes: form.hitlTimeoutMinutes || 0
+      hitlTimeoutMinutes: form.hitlTimeoutMinutes || 0,
+      knowledgeBaseCodes: boundKbCodes.value
     }
     if (form.id) {
       await put('/api/agents', payload)
-    } else {
-      const created = await post('/api/agents', payload)
-      form.id = created?.data
-    }
-
-    if (form.id) {
       await put(`/api/agents/${form.id}/tools`, boundToolIds.value)
       await put(`/api/agents/${form.id}/knowledge-bases`, boundKbCodes.value)
+    } else {
+      if (sourceAgentId.value) {
+        payload.sourceAgentId = sourceAgentId.value
+        payload.enabled = EnabledStatus.DISABLED
+      }
+      const created = await post('/api/agents', payload)
+      const newId = created?.data
+      if (newId) {
+        await put(`/api/agents/${newId}/tools`, boundToolIds.value)
+        await put(`/api/agents/${newId}/knowledge-bases`, boundKbCodes.value)
+      }
     }
     drawer.value = false
+    sourceAgentId.value = null
     await load()
   } catch (e) {
     error.value = e.message
@@ -369,40 +450,6 @@ async function toggle(item) {
   try {
     if (item.enabled === EnabledStatus.ENABLED) await put(`/api/agents/${item.id}/disable`)
     else await put(`/api/agents/${item.id}/enable`)
-    await load()
-  } catch (e) {
-    error.value = e.message
-  }
-}
-
-async function saveAsTemplate() {
-  if (!form.id) return
-  const agentName = window.prompt('模板名称', (form.agentName || '') + ' 模板')
-  if (agentName == null) return
-  saving.value = true
-  error.value = ''
-  try {
-    await post(`/api/agents/${form.id}/save-as-template`, {
-      agentName: agentName.trim() || undefined
-    })
-    drawer.value = false
-    await load()
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    saving.value = false
-  }
-}
-
-async function copyFromTemplate(item) {
-  const agentName = window.prompt('新智能体名称', (item.agentName || '').replace(/\s*模板$/, '') || '新智能体')
-  if (agentName == null) return
-  error.value = ''
-  try {
-    await post(`/api/agents/from-template/${item.id}`, {
-      agentName: agentName.trim() || undefined
-    })
-    showTemplates.value = false
     await load()
   } catch (e) {
     error.value = e.message

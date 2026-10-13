@@ -420,6 +420,9 @@ CREATE INDEX IF NOT EXISTS idx_agent_workflow_run_status ON deepstack.agent_work
 CREATE INDEX IF NOT EXISTS idx_agent_workflow_run_create_time ON deepstack.agent_workflow_run (create_time DESC) WHERE is_del = 0;
 CREATE INDEX IF NOT EXISTS idx_agent_workflow_run_trace ON deepstack.agent_workflow_run (trace_id) WHERE is_del = 0 AND trace_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_agent_workflow_run_mode_time ON deepstack.agent_workflow_run (orchestrate_mode, create_time DESC) WHERE is_del = 0;
+-- 配额校验在每次请求入口按「今日 + Agent/账号」聚合，这两条走索引避免全表扫
+CREATE INDEX IF NOT EXISTS idx_agent_workflow_run_code_time ON deepstack.agent_workflow_run (agent_code, create_time DESC) WHERE is_del = 0;
+CREATE INDEX IF NOT EXISTS idx_agent_workflow_run_creator_time ON deepstack.agent_workflow_run (creator_id, create_time DESC) WHERE is_del = 0;
 
 -- ====================================================================
 -- 12. agent_node_type
@@ -577,10 +580,10 @@ COMMENT ON COLUMN deepstack.ai_model.modifier IS '修改人名称';
 COMMENT ON COLUMN deepstack.ai_model.create_time IS '创建时间（默认当前时间；业务勿赋值）';
 COMMENT ON COLUMN deepstack.ai_model.update_time IS '更新时间（默认当前时间，行变更时由触发器自动刷新；业务勿赋值）';
 
-COMMENT ON TABLE deepstack.ai_agent IS '智能体（一等公民）：模型/提示词/记忆/编排；GRAPH 模式图定义内嵌';
+COMMENT ON TABLE deepstack.ai_agent IS 'Agent（一等公民）：模型/提示词/记忆/编排；GRAPH 模式图定义内嵌';
 COMMENT ON COLUMN deepstack.ai_agent.id IS '主键';
-COMMENT ON COLUMN deepstack.ai_agent.agent_code IS '智能体编码（唯一，对外调用标识）';
-COMMENT ON COLUMN deepstack.ai_agent.agent_name IS '智能体名称';
+COMMENT ON COLUMN deepstack.ai_agent.agent_code IS 'Agent 编码（唯一，对外调用标识）';
+COMMENT ON COLUMN deepstack.ai_agent.agent_name IS 'Agent 名称';
 COMMENT ON COLUMN deepstack.ai_agent.system_prompt IS '系统提示词';
 COMMENT ON COLUMN deepstack.ai_agent.model_code IS '绑定的 CHAT 模型编码（ai_model.model_code）';
 COMMENT ON COLUMN deepstack.ai_agent.temperature IS '采样温度';
@@ -598,9 +601,9 @@ COMMENT ON COLUMN deepstack.ai_agent.graph_definition IS 'GRAPH 模式图定义�
 COMMENT ON COLUMN deepstack.ai_agent.graph_version IS '图定义草稿乐观锁版本号';
 COMMENT ON COLUMN deepstack.ai_agent.published_graph_definition IS '已发布图定义；/api/chat GRAPH 只跑此字段';
 COMMENT ON COLUMN deepstack.ai_agent.published_version IS '已发布版本号（与乐观锁 graph_version 独立）';
-COMMENT ON COLUMN deepstack.ai_agent.quota_qps IS '智能体每秒请求上限；空=不限';
-COMMENT ON COLUMN deepstack.ai_agent.quota_concurrency IS '智能体并发运行上限；空=不限';
-COMMENT ON COLUMN deepstack.ai_agent.quota_daily_tokens IS '智能体每日 token 上限；空=不限';
+COMMENT ON COLUMN deepstack.ai_agent.quota_qps IS 'Agent 每秒请求上限；空=不限';
+COMMENT ON COLUMN deepstack.ai_agent.quota_concurrency IS 'Agent 并发运行上限；空=不限';
+COMMENT ON COLUMN deepstack.ai_agent.quota_daily_tokens IS 'Agent 每日 token 上限；空=不限';
 COMMENT ON COLUMN deepstack.ai_agent.hitl_timeout_minutes IS 'HITL 等待超时分钟；空则用全局配置';
 COMMENT ON COLUMN deepstack.ai_agent.trace_mode IS '追踪模式：0=NONE 1=RECORD 2=STREAM';
 COMMENT ON COLUMN deepstack.ai_agent.stream_progress IS '是否推送节点进度 SSE：1是 0否';
@@ -652,9 +655,9 @@ COMMENT ON COLUMN deepstack.ai_mcp_connection.modifier IS '修改人名称';
 COMMENT ON COLUMN deepstack.ai_mcp_connection.create_time IS '创建时间（默认当前时间；业务勿赋值）';
 COMMENT ON COLUMN deepstack.ai_mcp_connection.update_time IS '更新时间（默认当前时间，行变更时由触发器自动刷新；业务勿赋值）';
 
-COMMENT ON TABLE deepstack.ai_agent_tool IS '智能体与工具绑定';
+COMMENT ON TABLE deepstack.ai_agent_tool IS 'Agent 与工具绑定';
 COMMENT ON COLUMN deepstack.ai_agent_tool.id IS '主键';
-COMMENT ON COLUMN deepstack.ai_agent_tool.agent_id IS '智能体 ID（ai_agent.id）';
+COMMENT ON COLUMN deepstack.ai_agent_tool.agent_id IS 'Agent ID（ai_agent.id）';
 COMMENT ON COLUMN deepstack.ai_agent_tool.tool_id IS '工具 ID（ai_tool.id）';
 COMMENT ON COLUMN deepstack.ai_agent_tool.priority IS '优先级，数值越大越优先';
 COMMENT ON COLUMN deepstack.ai_agent_tool.enabled IS '是否启用：1启用 0停用';
@@ -751,17 +754,17 @@ COMMENT ON COLUMN deepstack.knowledge_chunk.is_del IS '逻辑删除：0正常 1�
 COMMENT ON COLUMN deepstack.knowledge_chunk.create_time IS '创建时间（默认当前时间；业务勿赋值）';
 COMMENT ON COLUMN deepstack.knowledge_chunk.update_time IS '更新时间（默认当前时间，行变更时由触发器自动刷新；业务勿赋值）';
 
-COMMENT ON TABLE deepstack.ai_agent_knowledge_base IS '智能体与知识库绑定';
+COMMENT ON TABLE deepstack.ai_agent_knowledge_base IS 'Agent 与知识库绑定';
 COMMENT ON COLUMN deepstack.ai_agent_knowledge_base.id IS '主键';
-COMMENT ON COLUMN deepstack.ai_agent_knowledge_base.agent_id IS '智能体 ID';
+COMMENT ON COLUMN deepstack.ai_agent_knowledge_base.agent_id IS 'Agent ID';
 COMMENT ON COLUMN deepstack.ai_agent_knowledge_base.knowledge_base_code IS '知识库编码';
-COMMENT ON COLUMN deepstack.ai_agent_knowledge_base.priority IS '检索优先级（同智能体内唯一）';
+COMMENT ON COLUMN deepstack.ai_agent_knowledge_base.priority IS '检索优先级（同 Agent 内唯一）';
 COMMENT ON COLUMN deepstack.ai_agent_knowledge_base.create_time IS '创建时间（默认当前时间；业务勿赋值）';
 
 COMMENT ON TABLE deepstack.agent_workflow_run IS '图运行记录（归属 ai_agent，无独立 agent_workflow 表）';
 COMMENT ON COLUMN deepstack.agent_workflow_run.id IS '主键';
-COMMENT ON COLUMN deepstack.agent_workflow_run.agent_id IS '智能体 ID（ai_agent.id）';
-COMMENT ON COLUMN deepstack.agent_workflow_run.agent_code IS '智能体编码冗余';
+COMMENT ON COLUMN deepstack.agent_workflow_run.agent_id IS 'Agent ID（ai_agent.id）';
+COMMENT ON COLUMN deepstack.agent_workflow_run.agent_code IS 'Agent 编码冗余';
 COMMENT ON COLUMN deepstack.agent_workflow_run.orchestrate_mode IS '编排模式：0=CHAT 1=GRAPH';
 COMMENT ON COLUMN deepstack.agent_workflow_run.trace_id IS '链路追踪 ID';
 COMMENT ON COLUMN deepstack.agent_workflow_run.thread_id IS '工作流 thread ID';
@@ -808,7 +811,7 @@ COMMENT ON TABLE deepstack.ai_chat_conversation IS '聊天会话元数据';
 COMMENT ON COLUMN deepstack.ai_chat_conversation.id IS '主键';
 COMMENT ON COLUMN deepstack.ai_chat_conversation.conversation_id IS '会话业务 ID（唯一）';
 COMMENT ON COLUMN deepstack.ai_chat_conversation.title IS '会话标题';
-COMMENT ON COLUMN deepstack.ai_chat_conversation.agent_code IS '智能体编码';
+COMMENT ON COLUMN deepstack.ai_chat_conversation.agent_code IS 'Agent 编码';
 COMMENT ON COLUMN deepstack.ai_chat_conversation.user_id IS '用户 ID';
 COMMENT ON COLUMN deepstack.ai_chat_conversation.last_message_at IS '最后消息时间';
 COMMENT ON COLUMN deepstack.ai_chat_conversation.message_count IS '消息条数';
@@ -870,7 +873,7 @@ COMMENT ON COLUMN deepstack.ai_user.update_time IS '更新时间（默认当前�
 COMMENT ON TABLE deepstack.ai_long_term_memory IS '长期记忆（PG 主存；可选 AGE 增强）';
 COMMENT ON COLUMN deepstack.ai_long_term_memory.id IS '主键';
 COMMENT ON COLUMN deepstack.ai_long_term_memory.user_id IS '用户 ID';
-COMMENT ON COLUMN deepstack.ai_long_term_memory.agent_code IS '智能体编码；* 表示跨智能体';
+COMMENT ON COLUMN deepstack.ai_long_term_memory.agent_code IS 'Agent 编码；* 表示跨 Agent';
 COMMENT ON COLUMN deepstack.ai_long_term_memory.category IS '分类，如 fact';
 COMMENT ON COLUMN deepstack.ai_long_term_memory.content IS '记忆正文';
 COMMENT ON COLUMN deepstack.ai_long_term_memory.graph_key IS '图谱关联键（可选）';
@@ -880,8 +883,8 @@ COMMENT ON COLUMN deepstack.ai_long_term_memory.is_del IS '逻辑删除：0正�
 COMMENT ON COLUMN deepstack.ai_long_term_memory.create_time IS '创建时间';
 COMMENT ON COLUMN deepstack.ai_long_term_memory.update_time IS '更新时间';
 
-COMMENT ON TABLE deepstack.ai_agent_graph_version IS '智能体已发布图版本历史';
-COMMENT ON TABLE deepstack.agent_alert_event IS '智能体告警触发记录';
+COMMENT ON TABLE deepstack.ai_agent_graph_version IS 'Agent 已发布图版本历史';
+COMMENT ON TABLE deepstack.agent_alert_event IS 'Agent 告警触发记录';
 
 -- ####################################################################
 -- Seeds (idempotent)
@@ -897,7 +900,7 @@ INSERT INTO deepstack.agent_node_type (type_code, label, icon, category, default
  -1, -1, 2, 1),
 ('llm-node', '大模型', 'el-icon-chat-dot-round', 'ai',
  '{"systemPrompt":"你是一个智能助手","temperature":0.7,"outputVar":"response"}',
- '[{"key":"modelCode","label":"对话模型","widget":"select","required":false,"optionsSource":"CHAT_MODEL","placeholder":"空=用智能体默认模型"},{"key":"systemPrompt","label":"系统提示词","widget":"textarea","required":true,"defaultValue":"你是一个智能助手","placeholder":"系统提示词"},{"key":"temperature","label":"温度","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~2.0"},{"key":"inputVars","label":"输入变量","widget":"json","required":false,"placeholder":"变量名数组"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"response","placeholder":"结果写入的变量名"}]',
+ '[{"key":"modelCode","label":"对话模型","widget":"select","required":false,"optionsSource":"CHAT_MODEL","placeholder":"空=用 Agent 默认模型"},{"key":"systemPrompt","label":"系统提示词","widget":"textarea","required":true,"defaultValue":"你是一个智能助手","placeholder":"系统提示词"},{"key":"temperature","label":"温度","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~2.0"},{"key":"inputVars","label":"输入变量","widget":"json","required":false,"placeholder":"变量名数组"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"response","placeholder":"结果写入的变量名"}]',
  -1, 1, 3, 1),
 ('rag-node', '知识检索', 'el-icon-reading', 'ai',
  '{"topK":5,"similarityThreshold":0.7,"outputVar":"rag_context"}',
@@ -940,7 +943,7 @@ WHERE type_code = 'intent-node';
 UPDATE deepstack.agent_node_type SET
   label = '大模型',
   default_props = '{"systemPrompt":"你是一个智能助手","temperature":0.7,"outputVar":"response"}',
-  property_fields = '[{"key":"modelCode","label":"对话模型","widget":"select","required":false,"optionsSource":"CHAT_MODEL","placeholder":"空=用智能体默认模型"},{"key":"systemPrompt","label":"系统提示词","widget":"textarea","required":true,"defaultValue":"你是一个智能助手","placeholder":"系统提示词"},{"key":"temperature","label":"温度","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~2.0"},{"key":"inputVars","label":"输入变量","widget":"json","required":false,"placeholder":"变量名数组"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"response","placeholder":"结果写入的变量名"}]',
+  property_fields = '[{"key":"modelCode","label":"对话模型","widget":"select","required":false,"optionsSource":"CHAT_MODEL","placeholder":"空=用 Agent 默认模型"},{"key":"systemPrompt","label":"系统提示词","widget":"textarea","required":true,"defaultValue":"你是一个智能助手","placeholder":"系统提示词"},{"key":"temperature","label":"温度","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~2.0"},{"key":"inputVars","label":"输入变量","widget":"json","required":false,"placeholder":"变量名数组"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"response","placeholder":"结果写入的变量名"}]',
   update_time = NOW()
 WHERE type_code = 'llm-node';
 UPDATE deepstack.agent_node_type SET

@@ -64,7 +64,7 @@ ALTER TABLE deepstack.ai_agent
 ALTER TABLE deepstack.ai_agent
     ADD COLUMN IF NOT EXISTS hitl_timeout_minutes INT;
 
--- 已有 GRAPH 智能体：把当前草稿同步为已发布，避免上线后对话断档
+-- 已有 GRAPH Agent：把当前草稿同步为已发布，避免上线后对话断档
 UPDATE deepstack.ai_agent
    SET published_graph_definition = graph_definition,
        published_version = COALESCE(graph_version, 1)
@@ -74,9 +74,9 @@ UPDATE deepstack.ai_agent
 
 COMMENT ON COLUMN deepstack.ai_agent.published_graph_definition IS '已发布图定义；/api/chat GRAPH 只跑此字段';
 COMMENT ON COLUMN deepstack.ai_agent.published_version IS '已发布版本号（与乐观锁 graph_version 独立）';
-COMMENT ON COLUMN deepstack.ai_agent.quota_qps IS '智能体每秒请求上限；空=不限';
-COMMENT ON COLUMN deepstack.ai_agent.quota_concurrency IS '智能体并发运行上限；空=不限';
-COMMENT ON COLUMN deepstack.ai_agent.quota_daily_tokens IS '智能体每日 token 上限；空=不限';
+COMMENT ON COLUMN deepstack.ai_agent.quota_qps IS 'Agent 每秒请求上限；空=不限';
+COMMENT ON COLUMN deepstack.ai_agent.quota_concurrency IS 'Agent 并发运行上限；空=不限';
+COMMENT ON COLUMN deepstack.ai_agent.quota_daily_tokens IS 'Agent 每日 token 上限；空=不限';
 COMMENT ON COLUMN deepstack.ai_agent.hitl_timeout_minutes IS 'HITL 等待超时分钟；空则用全局配置';
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_ai_agent_name_active
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS deepstack.ai_agent_graph_version (
 CREATE INDEX IF NOT EXISTS idx_agent_graph_version_agent
     ON deepstack.ai_agent_graph_version (agent_id, version DESC);
 
-COMMENT ON TABLE deepstack.ai_agent_graph_version IS '智能体已发布图版本历史';
+COMMENT ON TABLE deepstack.ai_agent_graph_version IS 'Agent 已发布图版本历史';
 
 -- --------------------------------------------------------------------
 -- F5：告警事件（规则阈值在 sys_config；触发记录落此表）
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS deepstack.agent_alert_event (
 CREATE INDEX IF NOT EXISTS idx_agent_alert_fired
     ON deepstack.agent_alert_event (fired_at DESC);
 
-COMMENT ON TABLE deepstack.agent_alert_event IS '智能体告警触发记录';
+COMMENT ON TABLE deepstack.agent_alert_event IS 'Agent 告警触发记录';
 
 -- --------------------------------------------------------------------
 -- sys_config 种子（F1/F2/F4/F5）
@@ -135,7 +135,7 @@ INSERT INTO deepstack.sys_config (id, config_key, config_name, config_value, val
     (1900010000000000035, 'quota.account.qps', '账号 QPS', '10', 'int', '登录用户每秒请求上限；0=不限'),
     (1900010000000000036, 'quota.account.concurrency', '账号并发', '5', 'int', '登录用户同时运行上限；0=不限'),
     (1900010000000000037, 'quota.account.daily-tokens', '账号每日 token', '0', 'int', '登录用户每日 token 上限；0=不限'),
-    (1900010000000000038, 'hitl.timeout-minutes', 'HITL 全局超时分钟', '60', 'int', 'WAITING_HUMAN 超时；智能体未单独配置时用'),
+    (1900010000000000038, 'hitl.timeout-minutes', 'HITL 全局超时分钟', '60', 'int', 'WAITING_HUMAN 超时；Agent 未单独配置时用'),
     (1900010000000000039, 'alert.enabled', '告警开关', '1', 'yes_no', '是否启用告警扫描'),
     (1900010000000000040, 'alert.webhook-url', '告警 Webhook', '', 'string', '触发后 POST JSON；空则仅落库+日志'),
     (1900010000000000041, 'alert.error-rate-threshold', '错误率阈值', '0.5', 'string', '近窗口失败率，如 0.3 表示 30%'),

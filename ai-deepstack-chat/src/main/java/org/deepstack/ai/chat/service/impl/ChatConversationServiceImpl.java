@@ -52,7 +52,7 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
      * 获取或创建会话；已存在则更新 last_message_at 与 message_count。
      *
      * @param conversationId 业务会话 ID
-     * @param agentCode      智能体编码
+     * @param agentCode      Agent 编码
      * @param userId         用户 ID
      * @return 会话实体
      */

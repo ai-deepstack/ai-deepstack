@@ -19,7 +19,7 @@
             <tr>
               <th>时间</th>
               <th>规则</th>
-              <th>智能体</th>
+              <th>Agent</th>
               <th>级别</th>
               <th>标题</th>
               <th>详情</th>
@@ -71,30 +71,19 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { get, pageList, post } from '../api/http'
+import { onMounted } from 'vue'
+import { get, post } from '../api/http'
+import { usePageList } from '../composables/usePageList'
 
-const list = ref([])
-const pageNum = ref(1)
-const totalPage = ref(0)
-const error = ref('')
+// 列表分页、过期响应丢弃与错误展示统一交给 usePageList
+const { list, pageNum, totalPage, error, load } = usePageList({
+  pageSize: 20,
+  fetcher: ({ pageNum: pn, pageSize: ps }) => get('/api/agent-alerts', { pageNum: pn, pageSize: ps })
+})
 
 function formatTime(t) {
   if (!t) return '—'
   return String(t).replace('T', ' ').slice(0, 19)
-}
-
-async function load(page = 1) {
-  const next = Number(page)
-  pageNum.value = Number.isFinite(next) && next > 0 ? next : 1
-  error.value = ''
-  try {
-    const res = await get('/api/agent-alerts', { pageNum: pageNum.value, pageSize: 20 })
-    list.value = pageList(res)
-    totalPage.value = res.data?.totalPage ?? 0
-  } catch (e) {
-    error.value = e.message
-  }
 }
 
 async function ack(item) {

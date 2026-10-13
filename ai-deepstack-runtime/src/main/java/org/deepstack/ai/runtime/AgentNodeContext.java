@@ -1,7 +1,8 @@
 package org.deepstack.ai.runtime;
 
 import org.deepstack.ai.engine.tool.AgentTool;
-import org.deepstack.ai.engine.WorkflowStreamEvent;
+import org.deepstack.ai.engine.api.WorkflowState;
+import org.deepstack.ai.engine.api.WorkflowStreamEvent;
 import org.deepstack.ai.memory.MemoryPort;
 import org.deepstack.ai.runtime.spi.CardPort;
 import org.deepstack.ai.runtime.spi.KnowledgePort;
@@ -121,51 +122,70 @@ public class AgentNodeContext {
     /**
      * 当前运行的流式事件 sink（来自 {@link RunContext}）。
      *
-     * @return 流式 sink；无当前 RunContext 时返回 null
+     * @param state 节点状态（用于在异步线程上按 threadId 回查上下文）
+     * @return 流式 sink；无对应 RunContext 时返回 null
      */
-    public Sinks.Many<WorkflowStreamEvent> getStreamSink() {
-        RunContext ctx = RunContext.current();
+    public Sinks.Many<WorkflowStreamEvent> getStreamSink(WorkflowState state) {
+        RunContext ctx = runContextFor(state);
         return ctx != null ? ctx.streamSink() : null;
     }
 
     /**
      * 当前运行的卡片发射器（来自 {@link RunContext}）。
      *
-     * @return 卡片回调；无当前 RunContext 时返回 null
+     * @param state 节点状态（用于在异步线程上按 threadId 回查上下文）
+     * @return 卡片回调；无对应 RunContext 时返回 null
      */
-    public Consumer<Object> getCardEmitter() {
-        RunContext ctx = RunContext.current();
+    public Consumer<Object> getCardEmitter(WorkflowState state) {
+        RunContext ctx = runContextFor(state);
         return ctx != null ? ctx.cardEmitter() : null;
     }
 
     /**
      * 当前运行的用户 ID。
      *
-     * @return userId；无当前 RunContext 时返回 null
+     * @param state 节点状态（用于在异步线程上按 threadId 回查上下文）
+     * @return userId；无对应 RunContext 时返回 null
      */
-    public String currentUserId() {
-        RunContext ctx = RunContext.current();
+    public String currentUserId(WorkflowState state) {
+        RunContext ctx = runContextFor(state);
         return ctx != null ? ctx.userId() : null;
     }
 
     /**
      * 当前运行的会话 ID。
      *
-     * @return conversationId；无当前 RunContext 时返回 null
+     * @param state 节点状态（用于在异步线程上按 threadId 回查上下文）
+     * @return conversationId；无对应 RunContext 时返回 null
      */
-    public String currentConversationId() {
-        RunContext ctx = RunContext.current();
+    public String currentConversationId(WorkflowState state) {
+        RunContext ctx = runContextFor(state);
         return ctx != null ? ctx.conversationId() : null;
     }
 
     /**
-     * 当前运行的智能体编码。
+     * 当前运行的 Agent 编码。
      *
-     * @return agentCode；无当前 RunContext 时返回 null
+     * @param state 节点状态（用于在异步线程上按 threadId 回查上下文）
+     * @return agentCode；无对应 RunContext 时返回 null
      */
-    public String currentAgentCode() {
-        RunContext ctx = RunContext.current();
+    public String currentAgentCode(WorkflowState state) {
+        RunContext ctx = runContextFor(state);
         return ctx != null ? ctx.agentCode() : null;
+    }
+
+    /**
+     * 取当前节点对应的 RunContext：当前线程优先，取不到再按 state 里的 threadId 回查
+     * （LangGraph 可能把节点调度到其它线程）。
+     *
+     * @param state 节点状态，可为 null
+     * @return 上下文；无对应执行时为 null
+     */
+    private static RunContext runContextFor(WorkflowState state) {
+        String threadId = state == null
+                ? null
+                : state.value(WorkflowState.THREAD_ID).map(String::valueOf).orElse(null);
+        return RunContext.currentOrThread(threadId);
     }
 }
 

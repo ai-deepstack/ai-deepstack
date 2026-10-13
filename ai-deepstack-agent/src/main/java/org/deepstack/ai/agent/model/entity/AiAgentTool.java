@@ -12,7 +12,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 智能体与工具绑定实体
+ * Agent 与工具绑定实体
  */
 @Data
 @TableName("ai_agent_tool")
@@ -22,7 +22,7 @@ public class AiAgentTool implements Serializable {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** 智能体 ID（ai_agent.id） */
+    /** Agent ID（ai_agent.id） */
     private Long agentId;
 
     /** 工具 ID（ai_tool.id） */

@@ -19,6 +19,8 @@ import org.deepstack.ai.tool.mcp.model.entity.AiMcpConnection;
 import org.deepstack.ai.tool.mcp.service.AiMcpConnectionService;
 import org.deepstack.ai.tool.model.entity.AiTool;
 import org.deepstack.ai.tool.service.AiToolService;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.TypeReference;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -28,6 +30,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * {@link AiMcpConnectionService} 实现：连接 CRUD、启停、密钥，以及建连同步。
@@ -45,6 +52,13 @@ public class AiMcpConnectionServiceImpl extends ServiceImpl<AiMcpConnectionMappe
     private final AiToolService aiToolService;
     private final ToolPort toolPort;
     private final ToolIndexHydrator toolIndexHydrator;
+
+    /** 响应中遮盖取值的请求头（凭据类）。 */
+    private static final Set<String> SENSITIVE_HEADERS = Set.of(
+            "authorization", "proxy-authorization", "x-api-key", "api-key",
+            "x-auth-token", "cookie", "set-cookie");
+    /** 遮盖占位；更新时收到该值表示「保持原值不变」。 */
+    private static final String MASKED_VALUE = "***";
 
     /**
      * 分页查询 MCP 连接。
@@ -162,7 +176,7 @@ public class AiMcpConnectionServiceImpl extends ServiceImpl<AiMcpConnectionMappe
             entity.setArgsJson(blankToNull(req.getArgsJson()));
         }
         if (req.getHeadersJson() != null) {
-            entity.setHeadersJson(blankToNull(req.getHeadersJson()));
+            entity.setHeadersJson(blankToNull(restoreMaskedHeaders(req.getHeadersJson(), entity.getHeadersJson())));
         }
         if (req.getRequestTimeoutMs() != null) {
             entity.setRequestTimeoutMs(req.getRequestTimeoutMs());
@@ -316,6 +330,80 @@ public class AiMcpConnectionServiceImpl extends ServiceImpl<AiMcpConnectionMappe
      * @param entity 连接实体
      * @return 对外响应对象
      */
+    /**
+     * 解析请求头 JSON 为有序 Map；空或非法返回 null。
+     *
+     * @param headersJson 请求头 JSON
+     * @return 有序 Map；无法解析时 null
+     */
+    private static Map<String, Object> parseHeaderMap(String headersJson) {
+        if (!StringUtils.hasText(headersJson)) {
+            return null;
+        }
+        try {
+            return JSON.parseObject(headersJson.trim(), new TypeReference<LinkedHashMap<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("MCP headersJson 解析失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** 是否为凭据类请求头（不区分大小写）。 */
+    private static boolean isSensitiveHeader(String name) {
+        return name != null && SENSITIVE_HEADERS.contains(name.toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * 遮盖凭据类请求头的取值后再下发。
+     *
+     * @param headersJson 存储的请求头 JSON
+     * @return 遮盖后的 JSON；无凭据头或无法解析时原样返回
+     */
+    private static String maskSensitiveHeaders(String headersJson) {
+        Map<String, Object> map = parseHeaderMap(headersJson);
+        if (map == null) {
+            return headersJson;
+        }
+        boolean changed = false;
+        for (Map.Entry<String, Object> e : map.entrySet()) {
+            if (isSensitiveHeader(e.getKey()) && e.getValue() != null
+                    && !String.valueOf(e.getValue()).isBlank()) {
+                e.setValue(MASKED_VALUE);
+                changed = true;
+            }
+        }
+        return changed ? JSON.toJSONString(map) : headersJson;
+    }
+
+    /**
+     * 更新时把遮盖占位还原为库中已存的取值，避免「看到 *** 直接保存」把真实凭据抹掉。
+     *
+     * @param incoming 请求携带的请求头 JSON
+     * @param stored   库中已存的请求头 JSON
+     * @return 还原后的 JSON
+     */
+    private static String restoreMaskedHeaders(String incoming, String stored) {
+        Map<String, Object> in = parseHeaderMap(incoming);
+        if (in == null) {
+            return incoming;
+        }
+        Map<String, Object> old = parseHeaderMap(stored);
+        if (old == null) {
+            return incoming;
+        }
+        boolean changed = false;
+        for (Map.Entry<String, Object> e : in.entrySet()) {
+            if (MASKED_VALUE.equals(e.getValue()) && isSensitiveHeader(e.getKey())) {
+                Object previous = old.get(e.getKey());
+                if (previous != null) {
+                    e.setValue(previous);
+                    changed = true;
+                }
+            }
+        }
+        return changed ? JSON.toJSONString(in) : incoming;
+    }
+
     @Override
     public McpConnectionResponse toResponse(AiMcpConnection entity) {
         McpConnectionResponse r = new McpConnectionResponse();
@@ -327,7 +415,7 @@ public class AiMcpConnectionServiceImpl extends ServiceImpl<AiMcpConnectionMappe
         r.setEndpoint(entity.getEndpoint());
         r.setCommand(entity.getCommand());
         r.setArgsJson(entity.getArgsJson());
-        r.setHeadersJson(entity.getHeadersJson());
+        r.setHeadersJson(maskSensitiveHeaders(entity.getHeadersJson()));
         r.setRequestTimeoutMs(entity.getRequestTimeoutMs());
         r.setEnabled(entity.getEnabled());
         r.setEnabledName(YesNo.labelOf(entity.getEnabled()));

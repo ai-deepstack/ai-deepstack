@@ -71,7 +71,7 @@ GraphRAG 细节见 [`knowledge-graph-rag.md`](knowledge-graph-rag.md)。
 | `knowledge.recall.max-expand-concurrency` | （新） | `8` | int | 单库多种子 expand 上限 |
 | `knowledge.recall.timeout-ms` | （新） | `3000` | int | 单库召回超时 |
 
-设置页分组：**图谱**、**长期记忆**、**工具 / MCP**、**Checkpoint**、**知识库召回**。
+设置页分组：图谱、长期记忆、工具 / MCP、Checkpoint、知识库召回。
 
 ### 继续留在业务表（资源级）
 
@@ -79,7 +79,7 @@ GraphRAG 细节见 [`knowledge-graph-rag.md`](knowledge-graph-rag.md)。
 | --- | --- | --- |
 | `enable_graph`、`graph_model_code` | `knowledge_base` | 单库是否建图/扩边（`enable_graph` 已是 0/1）、抽取模型 |
 | `graph_status`、`graph_error` | `knowledge_document` | 单文档写图状态 |
-| `enable_long_term_memory`、`enable_graph_memory` | `ai_agent` | 单智能体记忆策略（已是 0/1） |
+| `enable_long_term_memory`、`enable_graph_memory` | `ai_agent` | 单个 Agent 的记忆策略（已是 0/1） |
 | MCP 连接、工具启停、模型启停等 | 各业务表 | 已有管理页；`enabled` 均为 0/1 |
 
 ## 形态
@@ -129,16 +129,16 @@ PUT /api/settings
 
 - `SysConfigPort.getString(key)`
 - `SysConfigPort.getInt(key, defaultValue)`
-- `SysConfigPort.isYes(key)` — **是否类只用此方法**
+- `SysConfigPort.isYes(key)` — 是否类只用此方法
 - `GET /api/settings` → `List<SysConfigResponse>`，每项含：
 
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 雪花主键（仅库中已有行时有值） |
 | `configKey` | 配置键 |
-| `configName` | **配置名**（中文展示） |
+| `configName` | 配置名（中文展示） |
 | `configValue` | 当前有效值（是否类 `0`/`1`） |
-| `valueType` | `string` / `yes_no` / `int` / `json` / **`model`** |
+| `valueType` | `string` / `yes_no` / `int` / `json` / `model` |
 | `description` | 说明 |
 | `valueName` | 是否类时「是/否」 |
 | `modelType` | `valueType=model` 时：`0`=CHAT / `1`=EMBEDDING |
@@ -149,19 +149,15 @@ PUT /api/settings
 
 原 `@ConfigurationProperties` / `application.yml` 作部署期兜底；是否类 yml 可用 `true`/`false`，读入后规范为 `0`/`1`。MCP 前缀等运营项以 `SysConfigPort` 为准，不再在业务代码里 dual-read Properties。
 
-### Bean 装配调整
+### Bean 装配
 
-| 模块 | 现状 | 目标 |
-| --- | --- | --- |
-| `AgeGraphConfiguration` | yml `enabled=true` 才建 Bean | 引入即建；业务 `isYes("graph.enabled")` + ready |
-| `MemoryPgConfiguration` | yml `enabled=true` 才建 | 引入即建；业务 `isYes("memory.enabled")` |
-| `CheckpointConfiguration` | Conditional | 运行时 `isYes("checkpoint.enabled")` |
-| MCP | Properties `enabled` | `isYes("mcp.enabled")` |
-| tools disclosure | Properties | 字符串 mode 仍用 getString；与是否无关 |
+能力模块引入即装配，业务总开关不在 Bean 创建期判断。只有实现选型保留条件：`AgeGraphConfiguration`（`deepstack.graph.provider=age`）、`MemoryPgConfiguration`（`deepstack.memory.provider=pg`）。
+
+运行期是否干活读 `SysConfigPort`：`isYes("graph.enabled")`、`isYes("memory.enabled")`、`isYes("checkpoint.enabled")`、`isYes("mcp.enabled")`；`tools.disclosure-mode` 等字符串项用 `getString`。
 
 ## 控制台
 
-「系统设置」：列表以 **配置名** 为主、配置键为辅；是否项用开关；`valueType=model` 用模型下拉（`/api/models/options`）。JWT/S3 等不出现在此页。
+「系统设置」：列表以配置名为主、配置键为辅；是否项用开关；`valueType=model` 用模型下拉（`/api/models/options`）。JWT/S3 等不出现在此页。
 
 ## 交付
 
@@ -169,7 +165,7 @@ PUT /api/settings
 - [x] `settings-api`（`SysConfigPort` + Keys）+ App 实现 + Redis 刷新/失效 + Settings API
 - [x] 设置页（开关提交 0/1；`source` 字段）
 - [x] 各模块读 `SysConfigPort`；弱化运营项 ConditionalOnProperty
-- [ ] GraphRAG 门闩与 key 消费（见 knowledge-graph-rag；key 已入库）
+- [x] GraphRAG 门闩与 key 消费（见 knowledge-graph-rag；key 已入库）
 
 ## 验收
 

@@ -32,7 +32,7 @@ public class ChatConversation implements Serializable {
     /** 会话标题 */
     private String title;
 
-    /** 智能体编码 */
+    /** Agent 编码 */
     private String agentCode;
 
     /** 用户 ID */

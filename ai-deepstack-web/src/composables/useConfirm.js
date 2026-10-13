@@ -29,6 +29,13 @@ export function confirmDialog(messageOrOpts, opts = {}) {
   state.danger = options.danger !== false
   state.visible = true
 
+  // 若已有未决确认框，先让其以 false 结束，避免旧调用方永久挂起
+  if (resolver) {
+    const prev = resolver
+    resolver = null
+    prev(false)
+  }
+
   return new Promise((resolve) => {
     resolver = resolve
   })

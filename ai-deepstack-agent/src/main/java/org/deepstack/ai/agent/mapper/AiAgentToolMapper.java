@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 /**
- * 智能体-工具绑定 Mapper
+ * Agent-工具绑定 Mapper
  */
 @Mapper
 public interface AiAgentToolMapper extends BaseMapper<AiAgentTool> {

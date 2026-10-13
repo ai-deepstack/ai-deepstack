@@ -18,7 +18,7 @@ public class AgentModelResolverImpl implements AgentModelResolver {
 
     private final AiAgentService aiAgentService;
 
-    /** 按智能体编码解析绑定的模型编码。 */
+    /** 按 Agent 编码解析绑定的模型编码。 */
     @Override
     public String resolveModelCodeByAgentCode(String agentCode) {
         if (agentCode == null || agentCode.isBlank()) {

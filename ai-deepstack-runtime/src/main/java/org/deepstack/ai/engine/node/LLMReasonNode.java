@@ -3,8 +3,8 @@ package org.deepstack.ai.engine.node;
 
 import org.deepstack.ai.runtime.AgentNodeContext;
 import org.deepstack.ai.runtime.RunContext;
-import org.deepstack.ai.engine.WorkflowState;
-import org.deepstack.ai.engine.WorkflowStreamEvent;
+import org.deepstack.ai.engine.api.WorkflowState;
+import org.deepstack.ai.engine.api.WorkflowStreamEvent;
 import org.deepstack.ai.engine.support.ChatMessageKeys;
 import org.deepstack.ai.engine.support.MessageTextExtractor;
 import org.deepstack.ai.engine.support.NodeRetryExecutor;
@@ -113,17 +113,17 @@ public class LLMReasonNode implements AsyncNodeAction<WorkflowState> {
             // State 优先：LangGraph 可能在其他线程执行节点，ThreadLocal 会丢失。
             String userId = state.value(WorkflowState.USER_ID).map(Object::toString).orElse("");
             if (userId == null || userId.isEmpty()) {
-                userId = context.currentUserId() != null ? context.currentUserId() : "";
+                userId = context.currentUserId(state) != null ? context.currentUserId(state) : "";
             }
             String conversationId = state.value(WorkflowState.CONVERSATION_ID)
                     .map(Object::toString).orElse("");
             if (conversationId == null || conversationId.isEmpty()) {
-                conversationId = context.currentConversationId() != null
-                        ? context.currentConversationId() : "";
+                conversationId = context.currentConversationId(state) != null
+                        ? context.currentConversationId(state) : "";
             }
 
             // 是否有可用的卡片推送器
-            java.util.function.Consumer<Object> cardEmitter = context.getCardEmitter();
+            java.util.function.Consumer<Object> cardEmitter = context.getCardEmitter(state);
 
             OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder()
                     .model(context.getApiModelName(modelCode))
@@ -143,7 +143,8 @@ public class LLMReasonNode implements AsyncNodeAction<WorkflowState> {
             var factory = context.getToolDisclosureSessionFactory();
             if (factory != null && !allowCodes.isEmpty()) {
                 disclosureSession = factory.open(allowCodes);
-                RunContext rc = RunContext.current();
+                RunContext rc = RunContext.currentOrThread(
+                        state.value(WorkflowState.THREAD_ID).map(String::valueOf).orElse(null));
                 if (rc != null) {
                     rc.setToolDisclosureSession(disclosureSession);
                 }
@@ -162,6 +163,10 @@ public class LLMReasonNode implements AsyncNodeAction<WorkflowState> {
             ctxMap.put(ToolContextKeys.USER_ID, userId);
             ctxMap.put(ToolContextKeys.CONVERSATION_ID, conversationId);
             ctxMap.put(ToolContextKeys.MODEL_CODE, modelCode);
+            // threadId 走 ToolContext 显式传给工具：工具产出卡片时要带上它，
+            // 而工具可能跑在节点之外的线程上，读不到 ThreadLocal 里的 RunContext
+            ctxMap.put(ToolContextKeys.THREAD_ID,
+                    state.value(WorkflowState.THREAD_ID).map(String::valueOf).orElse(null));
             if (cardEmitter != null) {
                 ctxMap.put(ToolContextKeys.CARD_EMITTER, cardEmitter);
                 ctxMap.put("cardPort", context.getCardPort());
@@ -179,7 +184,7 @@ public class LLMReasonNode implements AsyncNodeAction<WorkflowState> {
             messages.add(new UserMessage(fullUserMessage));
 
             // 流式 sink：实时将 LLM chunk 推到 SSE 流。
-            Sinks.Many<WorkflowStreamEvent> sink = context.getStreamSink();
+            Sinks.Many<WorkflowStreamEvent> sink = context.getStreamSink(state);
 
             // driveStream：仅当存在 sink 且为最外层（非工具调用）LLM 调用时为 true。
             // 中间工具决策轮（通常只有 tool_call JSON，无面向用户的文本）不推流；
@@ -238,7 +243,7 @@ public class LLMReasonNode implements AsyncNodeAction<WorkflowState> {
      *
      * @param messages       system + user 消息
      * @param optionsBuilder OpenAI 选项（model、temperature）
-     * @param toolCallbacks  已注册的工具回调（智能体无工具时为空列表）
+     * @param toolCallbacks  已注册的工具回调（Agent 无工具时为空列表）
      * @param chatModel      该 modelId 对应的 ChatModel 实例
      * @param toolContext    按请求上下文（传入 {@link ToolCallback#call(String, ToolContext)}）
      * @param sink           推送 LLM chunk 的 SSE sink；禁用流式时为 null

@@ -1,7 +1,7 @@
 package org.deepstack.ai.agent.graph;
 
 import org.deepstack.ai.agent.model.entity.AiAgent;
-import org.deepstack.ai.engine.GraphSpec;
+import org.deepstack.ai.engine.api.GraphSpec;
 import org.deepstack.ai.kernel.observability.GraphDefinitionKeys;
 
 /**
@@ -15,7 +15,7 @@ public final class AgentGraphSpecs {
     /**
      * 由草稿图定义组装 GraphSpec（试跑 / 画布）。
      *
-     * @param agent 智能体实体
+     * @param agent Agent 实体
      * @return 图规格；agent 为 null 时返回 null
      */
     public static GraphSpec from(AiAgent agent) {
@@ -29,7 +29,7 @@ public final class AgentGraphSpecs {
     /**
      * 由已发布图定义组装 GraphSpec（正式对话 GRAPH）。
      *
-     * @param agent 智能体实体
+     * @param agent Agent 实体
      * @return 图规格；agent 为 null 时返回 null
      */
     public static GraphSpec fromPublished(AiAgent agent) {
@@ -43,7 +43,7 @@ public final class AgentGraphSpecs {
     /**
      * 填充 GraphSpec 公共字段。
      *
-     * @param agent      智能体
+     * @param agent      Agent
      * @param definition 图定义 JSON
      * @param version    版本号
      * @return 图规格

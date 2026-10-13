@@ -15,10 +15,10 @@ import java.util.Map;
 @Data
 public class StructuredGenerateResult implements Serializable {
 
-    /** 实际使用的智能体编码。 */
+    /** 实际使用的 Agent 编码。 */
     private String agentCode;
 
-    /** 智能体绑定的模型 ID（字符串形式，便于跨服务日志关联）。 */
+    /** Agent 绑定的模型 ID（字符串形式，便于跨服务日志关联）。 */
     private String modelCode;
 
     /**

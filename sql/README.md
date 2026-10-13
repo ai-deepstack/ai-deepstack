@@ -7,6 +7,8 @@
 | `02_agent_run_observability.sql` | 运行可观测列补齐（已有库） |
 | `03_production_features.sql` | F1–F9：模型可见性、发布图、配额、HITL、告警表、sys_config、名称唯一 |
 | `04_agent_copy_no_template.sql` | 已有库：删 `template` 列与 `tpl_*` 种子，补名称唯一索引 |
+| `05_quota_hot_path_indexes.sql` | 已有库：配额热路径索引（`agent_code` / `creator_id` + `create_time`） |
+| `06_agent_terminology.sql` | 已有库：表 / 列注释由「智能体」改为「Agent」（只改注释文本） |
 
 新库按顺序执行；`docker compose` 已挂载 `00`–`03` 到 initdb。已有库按需补跑：
 
@@ -16,6 +18,8 @@ psql -U postgres -d ai_deepstack -f sql/01_sys_config.sql
 psql -U postgres -d ai_deepstack -f sql/02_agent_run_observability.sql
 psql -U postgres -d ai_deepstack -f sql/03_production_features.sql
 psql -U postgres -d ai_deepstack -f sql/04_agent_copy_no_template.sql
+psql -U postgres -d ai_deepstack -f sql/05_quota_hot_path_indexes.sql
+psql -U postgres -d ai_deepstack -f sql/06_agent_terminology.sql
 ```
 
 `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` / 种子 `ON CONFLICT`，可重复执行。

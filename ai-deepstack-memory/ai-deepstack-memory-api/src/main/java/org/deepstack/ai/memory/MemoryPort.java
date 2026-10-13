@@ -19,7 +19,7 @@ public interface MemoryPort {
      * 召回并格式化为可注入 prompt 的文本。
      *
      * @param userId      用户 ID
-     * @param agentCode   智能体编码
+     * @param agentCode   Agent 编码
      * @param query       查询文本
      * @param limit       最大条数
      * @param enableGraph 是否启用图谱增强
@@ -31,7 +31,7 @@ public interface MemoryPort {
      * 写入一条长期记忆。
      *
      * @param userId         用户 ID
-     * @param agentCode      智能体编码
+     * @param agentCode      Agent 编码
      * @param content        记忆正文
      * @param category       分类（可空）
      * @param enableGraph    是否同步图谱

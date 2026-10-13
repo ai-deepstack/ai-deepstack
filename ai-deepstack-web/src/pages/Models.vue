@@ -126,8 +126,9 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { get, getIsAdmin, pageList, post, put } from '../api/http'
+import { get, getIsAdmin, post, put } from '../api/http'
 import PropSelect from '../components/PropSelect.vue'
+import { usePageList } from '../composables/usePageList'
 import {
   EnabledStatus,
   ModelType,
@@ -136,12 +137,16 @@ import {
   modelVisibilityOptions
 } from '../constants/enums'
 
-const list = ref([])
-const error = ref('')
 const saving = ref(false)
 const drawer = ref(null)
 const apiKey = ref('')
 const isAdmin = getIsAdmin()
+
+// 列表分页、过期响应丢弃与错误展示统一交给 usePageList
+const { list, error, load } = usePageList({
+  pageSize: 100,
+  fetcher: ({ pageNum, pageSize }) => get('/api/models/page', { pageNum, pageSize })
+})
 
 const visibilitySelectOptions = computed(() =>
   isAdmin
@@ -161,16 +166,6 @@ const form = reactive({
   visibility: ModelVisibility.PRIVATE,
   enabled: 1
 })
-
-async function load() {
-  error.value = ''
-  try {
-    const res = await get('/api/models/page', { pageNum: 1, pageSize: 100 })
-    list.value = pageList(res)
-  } catch (e) {
-    error.value = e.message
-  }
-}
 
 function openCreate() {
   Object.assign(form, {

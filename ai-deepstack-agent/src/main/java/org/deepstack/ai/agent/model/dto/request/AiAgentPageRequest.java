@@ -7,7 +7,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * AI 智能体分页查询请求
+ * AI Agent 分页查询请求
  *
  */
 @Data
@@ -21,7 +21,7 @@ public class AiAgentPageRequest implements Serializable {
     private Integer pageSize = 10;
 
     /**
-     * 智能体编码模糊匹配
+     * Agent 编码模糊匹配
      */
     private String agentCode;
 

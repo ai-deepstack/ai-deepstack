@@ -3,7 +3,7 @@
     <header class="page-head">
       <div>
         <h1>试用台</h1>
-        <p>选一个智能体，发消息试跑；左侧会显示运行过程。</p>
+        <p>选一个 Agent，发消息试跑；左侧会显示运行过程。</p>
       </div>
       <div class="row-actions">
         <button class="btn-ghost" type="button" @click="resetSession">新会话</button>
@@ -14,7 +14,7 @@
     <div class="chat-layout">
       <aside class="panel hud-corners" style="padding: 1rem">
         <div class="field">
-          <label>智能体</label>
+          <label>Agent</label>
           <PropSelect
             v-model="agentCode"
             :options="agentOptions"
@@ -110,7 +110,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { get, post } from '../api/http'
 import { streamSse, tryParseJson } from '../api/sse'
 import PropSelect from '../components/PropSelect.vue'
@@ -124,6 +125,7 @@ import {
 } from '../constants/enums'
 import { AgentRunUsageKeys, CardStatusFields, CardStatusPhases, ChatSseEvents } from '../constants/sseEvents'
 
+const route = useRoute()
 const agents = ref([])
 const agentCode = ref('')
 const conversationId = ref('')
@@ -143,7 +145,10 @@ async function loadAgents() {
   try {
     const res = await get('/api/agents/options')
     agents.value = res.data || []
-    if (!agentCode.value && agents.value.length) {
+    const fromQuery = String(route.query.agent || '').trim()
+    if (fromQuery && agents.value.some((a) => a.value === fromQuery)) {
+      agentCode.value = fromQuery
+    } else if (!agentCode.value && agents.value.length) {
       agentCode.value = agents.value.find((a) => a.value === 'demo_chat')?.value
         || agents.value[0].value
     }
@@ -151,6 +156,14 @@ async function loadAgents() {
     error.value = e.message
   }
 }
+
+watch(() => route.query.agent, (code) => {
+  const next = String(code || '').trim()
+  if (next && next !== agentCode.value && agents.value.some((a) => a.value === next)) {
+    agentCode.value = next
+    resetSession()
+  }
+})
 
 function onAgentChange() {
   resetSession()
@@ -238,7 +251,7 @@ function handleFrame({ event, data }, assistant) {
     return
   }
   if (event === E.USAGE) {
-    usage.value = typeof parsed === 'object' ? parsed : {}
+    usage.value = parsed && typeof parsed === 'object' ? parsed : {}
     timeline.value.push({
       kind: 'done',
       title: '完成',
@@ -284,7 +297,7 @@ function handleFrame({ event, data }, assistant) {
     if (p.result && !assistant.content) assistant.content = String(p.result)
     timeline.value.push({
       kind: p.statusCode === GraphRunStatus.FAILED ? 'err' : 'done',
-        title: `工作流 · ${p.statusName || (p.statusCode ?? 'DONE')}`,
+        title: `流程图 · ${p.statusName || (p.statusCode ?? 'DONE')}`,
       detail: p.errorMessage || ''
     })
     return

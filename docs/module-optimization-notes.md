@@ -14,7 +14,7 @@
 | 4 | 模型配置变更 evict 客户端缓存 | `AiModelChangedEvent` → `AiModelClientCacheEvictListener` |
 | 5 | MCP listTools 按连接缓存 | `McpToolBridge.listToolsCache` |
 | 6 | 工具目录批量 IN | `AiToolService.listEnabledByCodes` + `DbToolCatalog.listByCodes` |
-| 7 | 工作流跟踪不在池线程 join | `WorkflowCompiler.wrapWithTracking` |
+| 7 | 图执行跟踪不在池线程 join | `NodeActionFactory.wrapWithTracking` |
 | 8 | CHAT 画像 / RAG / 记忆并行拼 prompt | `ChatServiceImpl.buildSystemPrompt` |
 
 ### 复查后补齐（A/B + 随后项）
@@ -25,7 +25,7 @@
 | B. 卡片 ChatClient 握旧模型 | `ChatCardServiceImpl` 不再缓存 ChatClient，每次 `Factory.getChatModel` 再 builder |
 | 拼 prompt 总时限 | `chat.context.timeout-ms`（默认 10s）；`allOf.get` + 超时取消 |
 | 工具回调冷启动批量 | `CatalogToolCallbackResolver.resolveByCodes` 未命中走 `listByCodes` |
-| 智能体详情绑库批量 | `KnowledgeBaseService.listByBaseCodes` + `AgentController.fillKnowledgeBases` |
+| Agent 详情绑库批量 | `KnowledgeBaseService.listByBaseCodes` + `AgentController.fillKnowledgeBases` |
 | 文档 chunk 批量写库 | `DocumentProcessorImpl.embedAndSave` → `knowledgeChunkService.saveBatch` |
 
 ## 先不动

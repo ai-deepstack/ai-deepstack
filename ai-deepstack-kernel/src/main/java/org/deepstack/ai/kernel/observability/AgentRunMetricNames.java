@@ -1,7 +1,7 @@
 package org.deepstack.ai.kernel.observability;
 
 /**
- * 智能体运行相关 Micrometer 指标名与标签键。
+ * Agent 运行相关 Micrometer 指标名与标签键。
  */
 public final class AgentRunMetricNames {
 
@@ -18,7 +18,7 @@ public final class AgentRunMetricNames {
     /** 节点执行耗时计时器。 */
     public static final String NODE_DURATION = "agent.node.duration";
 
-    /** 标签：智能体编码。 */
+    /** 标签：Agent 编码。 */
     public static final String TAG_AGENT = "agent";
     /** 标签：编排模式。 */
     public static final String TAG_MODE = "mode";

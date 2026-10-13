@@ -6,9 +6,9 @@ import org.deepstack.ai.agent.graph.NodeTypeRegistry;
 import org.deepstack.ai.agent.model.entity.AiAgentGraphVersion;
 import org.deepstack.ai.agent.model.dto.response.AgentGraphResponse;
 import org.deepstack.ai.agent.model.dto.response.NodeTypeResponse;
-import org.deepstack.ai.engine.GraphRunRequest;
-import org.deepstack.ai.engine.GraphRunResponse;
-import org.deepstack.ai.engine.GraphSpec;
+import org.deepstack.ai.engine.api.GraphRunRequest;
+import org.deepstack.ai.engine.api.GraphRunResponse;
+import org.deepstack.ai.engine.api.GraphSpec;
 import org.deepstack.ai.kernel.enums.common.EnabledStatusEnum;
 import org.deepstack.ai.kernel.model.Response;
 import org.deepstack.ai.kernel.observability.GraphDefinitionKeys;
@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 智能体编排图 API：图定义读写、试跑、HITL resume、运行查询与取消。
+ * Agent 编排图 API：图定义读写、试跑、HITL resume、运行查询与取消。
  */
 @Slf4j
 @RestController
@@ -42,9 +42,9 @@ public class AgentGraphController {
     private final NodeTypeRegistry nodeTypeRegistry;
 
     /**
-     * 读取智能体当前图定义。
+     * 读取 Agent 当前图定义。
      *
-     * @param id 智能体主键
+     * @param id Agent 主键
      * @return 图响应；无定义时 data 为 null
      */
     @GetMapping("/{id}/graph")
@@ -55,9 +55,9 @@ public class AgentGraphController {
     }
 
     /**
-     * 更新智能体图定义（可能自动将编排模式切到 GRAPH）。
+     * 更新 Agent 图定义（可能自动将编排模式切到 GRAPH）。
      *
-     * @param id         智能体主键
+     * @param id         Agent 主键
      * @param definition 图定义 JSON 对象
      */
     @PutMapping("/{id}/graph")
@@ -70,7 +70,7 @@ public class AgentGraphController {
     /**
      * 发布草稿图：复制到 published，递增版本并写入历史。
      *
-     * @param id   智能体主键
+     * @param id   Agent 主键
      * @param body 可选 body，支持 {@code remark}
      * @return 新的已发布版本号
      */
@@ -85,7 +85,7 @@ public class AgentGraphController {
     /**
      * 列出已发布图版本历史（版本号降序）。
      *
-     * @param id 智能体主键
+     * @param id Agent 主键
      * @return 版本摘要列表
      */
     @GetMapping("/{id}/graph/versions")
@@ -100,7 +100,7 @@ public class AgentGraphController {
     /**
      * 回滚到指定历史版本（同步 published 与草稿）。
      *
-     * @param id      智能体主键
+     * @param id      Agent 主键
      * @param version 目标版本号
      */
     @PostMapping("/{id}/graph/rollback/{version}")
@@ -113,7 +113,7 @@ public class AgentGraphController {
     /**
      * 将节点/边片段合并进草稿（节点 id 重新生成）。
      *
-     * @param id   智能体主键
+     * @param id   Agent 主键
      * @param body {@code nodes} / {@code edges} 列表
      */
     @PostMapping("/{id}/graph/insert-fragment")
@@ -131,7 +131,7 @@ public class AgentGraphController {
     /**
      * 同步试跑图（阻塞等待完成或超时）。
      *
-     * @param id  智能体主键
+     * @param id  Agent 主键
      * @param req 试跑请求（须含 message）
      * @return 运行结果
      */
@@ -145,7 +145,7 @@ public class AgentGraphController {
     /**
      * HITL：从 checkpoint 恢复（请求须带 {@code threadId}，可选 {@code resumeUpdates}）。
      *
-     * @param id  智能体主键
+     * @param id  Agent 主键
      * @param req 恢复请求
      * @return 恢复后的运行结果
      */
@@ -159,7 +159,7 @@ public class AgentGraphController {
     /**
      * 异步启动试跑，立即返回 runId。
      *
-     * @param id  智能体主键
+     * @param id  Agent 主键
      * @param req 试跑请求
      * @return 含 runId 的 map
      */

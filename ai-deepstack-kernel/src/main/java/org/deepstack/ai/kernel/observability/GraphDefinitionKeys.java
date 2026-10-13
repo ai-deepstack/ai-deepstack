@@ -19,7 +19,7 @@ public final class GraphDefinitionKeys {
     public static final String TARGET = "target";
     /** 边终点（画布字段）。 */
     public static final String TARGET_NODE_ID = "targetNodeId";
-    /** GraphSpec.graphType：智能体图。 */
+    /** GraphSpec.graphType：Agent 图。 */
     public static final String GRAPH_TYPE_AGENT = "AGENT";
 
     private GraphDefinitionKeys() {

@@ -2,15 +2,15 @@
 
 ## 目标产品模型（终态）
 
-**唯一一等公民：Agent。取消「场景」概念；取消「独立工作流模块再绑定」的产品形态。**
+唯一一等公民：Agent。
 
 | 概念 | 终态定义 |
 |------|----------|
-| **Agent** | 可部署、可调用、可版本化的智能体。对外标识：`agentCode`（`/api/chat`、`/api/agents/**`） |
+| **Agent** | 可部署、可调用、可版本化的配置实体。对外标识：`agentCode`（`/api/chat`、`/api/agents/**`） |
 | **编排** | Agent 属性：`CHAT`（直连模型+工具+RAG）或 `GRAPH`（`graphDefinition` 内嵌 LangGraph） |
 | **画布 / 试跑** | 挂在 Agent 下：`GET/PUT /api/agents/{id}/graph`、`POST .../graph/test` |
 | **节点类型 / 工具 / 模型 / 知识库** | 平台级目录，供多个 Agent 引用 |
-| **复用** | 列表「复制」进入新建编辑（`sourceAgentId`）；图内 `insert-fragment` 插子图；不做模板实体 / 共享 Workflow 外键 |
+| **复用** | 列表「复制」进入新建编辑（`sourceAgentId`）；图内 `insert-fragment` 插子图 |
 
 原则：配置与编排在同一 Agent 资源上版本化；调用方只认识 Agent。
 
@@ -25,7 +25,7 @@
 
 ## Phase 2
 
-- [x] **Agent 模型收敛**：Scene → `ai_agent`；`orchestrateMode` + 内嵌 `graphDefinition`；去掉独立 `agent_workflow` 绑定
+- [x] **Agent 模型收敛**：`orchestrateMode` + 内嵌 `graphDefinition`
 - [x] **Agent 内可视化画布**（控制台 GraphEditor；API 已就绪）
 - [ ] 更细的 AutoConfiguration（可选 Web）
 - [x] 本地长期记忆：`ai-deepstack-memory`（`memory-api` + `memory-pg`，PG 主存 + 可选 AGE）

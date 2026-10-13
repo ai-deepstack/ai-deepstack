@@ -1,7 +1,7 @@
 package org.deepstack.ai.kernel.enums.agent;
 
 /**
- * 智能体运行错误分类（写入 agent_workflow_run.error_code，供概览聚合）。
+ * Agent 运行错误分类（写入 agent_workflow_run.error_code，供概览聚合）。
  */
 public enum AgentRunErrorCode {
 

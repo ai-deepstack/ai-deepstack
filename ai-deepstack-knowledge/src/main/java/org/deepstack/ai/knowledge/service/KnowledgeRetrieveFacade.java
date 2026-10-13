@@ -134,7 +134,7 @@ public class KnowledgeRetrieveFacade {
      * 单库超时/失败 → 该库空上下文，不影响其他库；最终列表长度与 {@code baseCodes} 一致。
      * </p>
      *
-     * @param baseCodes          有序知识库编码（请求覆盖或智能体绑定）
+     * @param baseCodes          有序知识库编码（请求覆盖或 Agent 绑定）
      * @param query              查询文本
      * @param defaultTopK        库未配 topK 时默认
      * @param defaultThreshold   库未配阈值时默认

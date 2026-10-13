@@ -4,7 +4,7 @@
       <div>
         <h1>图编排</h1>
         <p>
-          智能体 #{{ agentId }}
+          Agent #{{ agentId }}
           <span v-if="agentName"> · {{ agentName }}</span>
           <span v-if="graphMeta.workflowType" class="pill pill-brass" style="margin-left: 0.4rem">{{ graphMeta.workflowType }}</span>
           <span v-if="graphMeta.version != null" class="pill" style="margin-left: 0.25rem">草稿 v{{ graphMeta.version }}</span>
@@ -122,95 +122,15 @@
           {{ selectionTitle }}
         </h3>
 
-        <template v-if="selectedNode">
-          <div class="field">
-            <label>显示名称</label>
-            <input v-model="selectedNode.data.label" />
-          </div>
-          <div class="field">
-            <label>节点类型</label>
-            <input :value="displayTypeLabel({ type: selectedNode.data.nodeType, label: selectedNode.data.typeLabel })" disabled />
-          </div>
-          <p
-            v-if="selectedNode.data.nodeType === 'condition-node'"
-            class="muted"
-            style="font-size: 0.72rem; margin: 0 0 0.75rem; line-height: 1.45"
-          >
-            节点内表达式只负责求值。分支请在出边上的「路由条件」填写，例如
-            <code>condition_result == true</code> / <code>DEFAULT</code>。
-          </p>
-          <p
-            v-if="selectedNode.data.nodeType === 'llm-node' || selectedNode.data.nodeType === 'intent-node'"
-            class="muted"
-            style="font-size: 0.72rem; margin: 0 0 0.75rem"
-          >
-            双击节点可打开全屏配置。
-          </p>
-          <div v-if="selectedNode.data.nodeType === 'intent-node'" class="field">
-            <label>输出变量</label>
-            <input
-              v-model="selectedNode.data.properties.outputVar"
-              placeholder="intent"
-              @blur="ensureIntentOutputVar"
-            />
-            <p class="muted" style="margin: 0.28rem 0 0; font-size: 0.68rem; line-height: 1.4">
-              分类结果写入该变量；多个意图节点请用不同变量名，避免互相覆盖。后续可引用
-              <code>{{ intentVarRef }}</code>
-            </p>
-          </div>
-          <template v-for="field in selectedFields" :key="field.key">
-            <div v-if="!(selectedNode.data.nodeType === 'intent-node' && field.key === 'outputVar')" class="field">
-              <label>{{ field.label || field.key }}</label>
-              <template v-if="field.widget === 'switch' || field.key === 'enableGraph'">
-                <PropCheckbox
-                  v-model="selectedNode.data.properties[field.key]"
-                  :label="selectedNode.data.properties[field.key] ? '开' : '关'"
-                />
-              </template>
-              <template v-else-if="isSliderField(field)">
-                <input
-                  v-model.number="selectedNode.data.properties[field.key]"
-                  type="range"
-                  :min="field.key === 'temperature' ? 0 : 0"
-                  :max="field.key === 'temperature' ? 2 : 1"
-                  :step="field.key === 'temperature' ? 0.1 : 0.05"
-                />
-                <div class="muted" style="font-size: 0.72rem">{{ selectedNode.data.properties[field.key] }}</div>
-              </template>
-              <PropMultiSelect
-                v-else-if="isMultiSelectField(field)"
-                :model-value="asArray(selectedNode.data.properties[field.key])"
-                :options="multiOptions(field)"
-                :placeholder="field.placeholder || '请选择（可多选）'"
-                @update:model-value="(vals) => { selectedNode.data.properties[field.key] = vals }"
-              />
-              <PropSelect
-                v-else-if="field.widget === 'select'"
-                v-model="selectedNode.data.properties[field.key]"
-                :options="field.options || []"
-                placeholder="请选择"
-              />
-              <textarea
-                v-else-if="field.widget === 'textarea' || field.widget === 'json'"
-                :value="jsonFieldText(field.key)"
-                rows="4"
-                :placeholder="field.placeholder || ''"
-                @input="onJsonOrTextInput(field, $event.target.value)"
-              />
-              <PropNumber
-                v-else-if="field.widget === 'number'"
-                v-model="selectedNode.data.properties[field.key]"
-                :placeholder="field.placeholder || ''"
-              />
-              <input
-                v-else
-                v-model="selectedNode.data.properties[field.key]"
-                :placeholder="field.placeholder || ''"
-              />
-            </div>
-          </template>
-          <button class="btn-ghost" type="button" style="width: 100%; color: var(--danger)" @click="removeSelected">删除节点</button>
-        </template>
+        <NodePropertyPanel
+          v-if="selectedNode"
+          v-model:config-open="configDialogVisible"
+          :node="selectedNode"
+          :nodes="nodes"
+          :edges="edges"
+          :catalog="nodeTypeCatalog"
+          @remove="removeSelected"
+        />
 
         <template v-else-if="selectedEdge">
           <div class="field">
@@ -254,10 +174,10 @@
     <!-- 试跑对话框 -->
     <div v-if="testDialogVisible" class="modal-mask" @click.self="closeTestDialog">
       <div class="modal-card">
-        <h3 style="margin: 0 0 0.8rem">测试工作流</h3>
+        <h3 style="margin: 0 0 0.8rem">试跑</h3>
         <div class="field">
-          <label>测试消息</label>
-          <textarea v-model="testMessage" rows="3" placeholder="输入测试消息" />
+          <label>消息</label>
+          <textarea v-model="testMessage" rows="3" placeholder="输入一条消息" />
         </div>
         <div class="field">
           <label>用户 ID（可选）</label>
@@ -273,63 +193,11 @@
         <pre v-if="testResult" class="panel-quiet test-result-pre">{{ testResult }}</pre>
       </div>
     </div>
-
-    <!-- LLM / 意图全屏配置 -->
-    <div v-if="configDialogVisible && selectedNode" class="modal-mask" @click.self="configDialogVisible = false">
-      <div class="modal-card modal-wide">
-        <h3 style="margin: 0 0 0.8rem">
-          编辑{{ displayTypeLabel({ type: selectedNode.data.nodeType }) }}配置
-        </h3>
-        <template v-if="selectedNode.data.nodeType === 'llm-node'">
-          <div class="field">
-            <label>系统提示词</label>
-            <textarea v-model="selectedNode.data.properties.systemPrompt" rows="12" />
-          </div>
-          <div class="field">
-            <label>温度 {{ selectedNode.data.properties.temperature }}</label>
-            <input v-model.number="selectedNode.data.properties.temperature" type="range" min="0" max="2" step="0.1" />
-          </div>
-          <div class="field">
-            <label>输出变量</label>
-            <input v-model="selectedNode.data.properties.outputVar" />
-          </div>
-        </template>
-        <template v-else-if="selectedNode.data.nodeType === 'intent-node'">
-          <div class="field">
-            <label>意图类别</label>
-            <PropMultiSelect
-              :model-value="asArray(selectedNode.data.properties.categories)"
-              :options="intentCategoryOptions"
-              placeholder="从意图字典多选"
-              @update:model-value="(vals) => { selectedNode.data.properties.categories = vals }"
-            />
-          </div>
-          <div class="field">
-            <label>输出变量</label>
-            <input
-              v-model="selectedNode.data.properties.outputVar"
-              placeholder="intent"
-              @blur="ensureIntentOutputVar"
-            />
-            <p class="muted" style="margin: 0.28rem 0 0; font-size: 0.72rem">
-              多个意图节点请使用不同变量名；边条件可写 <code>{{ intentVarRef }} == HEALTH</code>
-            </p>
-          </div>
-          <div class="field">
-            <label>分类提示词</label>
-            <textarea v-model="selectedNode.data.properties.prompt" rows="10" />
-          </div>
-        </template>
-        <div class="row-actions" style="justify-content: flex-end">
-          <button class="btn" type="button" @click="configDialogVisible = false">完成</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, markRaw, onMounted, onUnmounted, ref } from 'vue'
+import { computed, markRaw, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -341,16 +209,13 @@ import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 import AgentFlowNode from '../components/AgentFlowNode.vue'
 import NodeIcon from '../components/NodeIcon.vue'
-import PropCheckbox from '../components/PropCheckbox.vue'
-import PropMultiSelect from '../components/PropMultiSelect.vue'
-import PropNumber from '../components/PropNumber.vue'
-import PropSelect from '../components/PropSelect.vue'
-import { get, post, put } from '../api/http'
-import { GraphRunStatus } from '../constants/enums'
-import { nodeIcon, nodeTypeHint, nodeTypeLabel } from '../constants/graphNodes'
-import { detectCycle, getCycleEdgeIds } from '../utils/graphCycle'
+import NodePropertyPanel from '../components/graph/NodePropertyPanel.vue'
+import { nodeIcon, nodeTypeHint } from '../constants/graphNodes'
 import { isValidConnection } from '../utils/graphPorts'
+import { createNodeObject, displayTypeLabel, setEdgeCondition as applyEdgeCondition } from '../utils/graphModel'
 import { confirmDialog } from '../composables/useConfirm'
+import { useGraphPersistence } from '../composables/useGraphPersistence'
+import { useGraphTestRun } from '../composables/useGraphTestRun'
 
 const route = useRoute()
 const agentId = computed(() => route.params.id)
@@ -369,43 +234,46 @@ const {
 
 const nodes = ref([])
 const edges = ref([])
-const nodeTypeCatalog = ref([])
 const selectionKind = ref(null)
 const selectedNodeId = ref(null)
 const selectedEdgeId = ref(null)
 const selectedNodeIds = ref([])
 const selectedEdgeIds = ref([])
-const agentName = ref('')
-const graphMeta = ref({ workflowType: '', version: null, enabled: null })
-const publishedVersion = ref(null)
-const versions = ref([])
-const showVersions = ref(false)
-const publishing = ref(false)
-const error = ref('')
-const okMsg = ref('')
-const saving = ref(false)
-
-const testDialogVisible = ref(false)
-const testing = ref(false)
-const cancelling = ref(false)
-const testMessage = ref('你好，请做一次图试跑。')
-const testUserId = ref('')
-const testResult = ref('')
-const currentRunId = ref(null)
-let pollTimer = null
-
 const configDialogVisible = ref(false)
 
-/** 各节点类型默认写出的变量名（未配置 outputVar 时） */
-const DEFAULT_OUTPUT_VAR = {
-  'start-node': 'user_message',
-  'intent-node': 'intent',
-  'llm-node': 'response',
-  'rag-node': 'rag_context',
-  'tool-node': 'tool_result',
-  'condition-node': 'condition_result',
-  'memory-node': 'memory_context'
-}
+// 保存/发布/版本与试跑各自独立，通过组合式函数持有状态
+const {
+  agentName,
+  agentModelCode,
+  nodeTypeCatalog,
+  graphMeta,
+  publishedVersion,
+  versions,
+  showVersions,
+  publishing,
+  saving,
+  error,
+  okMsg,
+  load,
+  save,
+  publish,
+  toggleVersions,
+  rollback
+} = useGraphPersistence({ agentId, nodes, edges, clearSelection })
+
+const {
+  testDialogVisible,
+  testing,
+  cancelling,
+  testMessage,
+  testUserId,
+  testResult,
+  currentRunId,
+  openTestDialog,
+  closeTestDialog,
+  runTest,
+  cancelTest
+} = useGraphTestRun({ agentId, save, error, okMsg })
 
 const selectedNode = computed(() => {
   if (selectionKind.value !== 'node' || !selectedNodeId.value) return null
@@ -416,35 +284,6 @@ const selectedEdge = computed(() => {
   if (selectionKind.value !== 'edge' || !selectedEdgeId.value) return null
   return edges.value.find((e) => e.id === selectedEdgeId.value) || null
 })
-
-const selectedFields = computed(() => {
-  if (!selectedNode.value) return []
-  const nt = nodeTypeCatalog.value.find((x) => x.type === selectedNode.value.data.nodeType)
-  return nt?.propertyFields || []
-})
-
-const intentCategoryOptions = computed(() => {
-  const nt = nodeTypeCatalog.value.find((x) => x.type === 'intent-node')
-  const field = (nt?.propertyFields || []).find((f) => f.key === 'categories')
-  return field?.options || []
-})
-
-const intentOutputVar = computed(() => {
-  const v = selectedNode.value?.data?.properties?.outputVar
-  return v != null && String(v).trim() ? String(v).trim() : 'intent'
-})
-
-const intentVarRef = computed(() => `\${${intentOutputVar.value}}`)
-
-function ensureIntentOutputVar() {
-  if (!selectedNode.value || selectedNode.value.data.nodeType !== 'intent-node') return
-  const v = selectedNode.value.data.properties.outputVar
-  if (v == null || String(v).trim() === '') {
-    selectedNode.value.data.properties.outputVar = 'intent'
-  } else {
-    selectedNode.value.data.properties.outputVar = String(v).trim()
-  }
-}
 
 const selectionTitle = computed(() => {
   if (selectedNode.value) return '节点属性'
@@ -472,147 +311,11 @@ const edgeDisplayLabel = computed({
   }
 })
 
+/** 把路由条件写回选中边（纯转换在 graphModel.setEdgeCondition）。 */
 function setEdgeCondition(val) {
   const id = selectedEdgeId.value
   if (!id) return
-  const next = val ?? ''
-  edges.value = edges.value.map((e) => {
-    if (e.id !== id) return e
-    const prevCond = e.data?.properties?.condition ?? ''
-    const props = { ...(e.data?.properties || {}), condition: next }
-    const mirrorLabel = !e.label || e.label === prevCond
-    return {
-      ...e,
-      data: { ...(e.data || {}), properties: props },
-      label: mirrorLabel ? next : e.label,
-      class: e.class
-    }
-  })
-}
-
-function displayTypeLabel(nt) {
-  return nodeTypeLabel(nt?.type, nt?.label)
-}
-
-function asArray(val) {
-  if (Array.isArray(val)) return val
-  if (val == null || val === '') return []
-  if (typeof val === 'string') {
-    try {
-      const parsed = JSON.parse(val)
-      return Array.isArray(parsed) ? parsed : [val]
-    } catch {
-      return val.split(',').map((s) => s.trim()).filter(Boolean)
-    }
-  }
-  return [val]
-}
-
-function isSliderField(field) {
-  return field.key === 'temperature' || field.key === 'similarityThreshold'
-}
-
-function isMultiSelectField(field) {
-  return field.key === 'inputVars' || field.key === 'knowledgeBaseCodes' || field.key === 'categories'
-}
-
-/** 沿入边回溯，收集当前节点的所有上游节点 id（不含自身）。 */
-function collectUpstreamNodeIds(nodeId) {
-  if (!nodeId) return new Set()
-  const incoming = new Map()
-  for (const e of edges.value) {
-    const src = e.source
-    const tgt = e.target
-    if (!src || !tgt) continue
-    if (!incoming.has(tgt)) incoming.set(tgt, [])
-    incoming.get(tgt).push(src)
-  }
-  const upstream = new Set()
-  const stack = [...(incoming.get(nodeId) || [])]
-  while (stack.length) {
-    const id = stack.pop()
-    if (!id || upstream.has(id) || id === nodeId) continue
-    upstream.add(id)
-    const preds = incoming.get(id) || []
-    for (const p of preds) {
-      if (!upstream.has(p) && p !== nodeId) stack.push(p)
-    }
-  }
-  return upstream
-}
-
-/** 仅从上游节点收集可选输入变量（下游尚未执行，不可引用）。 */
-function collectGraphInputVarOptions(nodeId) {
-  const opts = []
-  const seen = new Set()
-  const upstream = collectUpstreamNodeIds(nodeId)
-  for (const n of nodes.value) {
-    if (!n?.data || !upstream.has(n.id)) continue
-    const type = n.data.nodeType
-    // 用户原话由运行时从 messages 自动带入，不出现在输入变量选项里
-    if (type === 'end-node' || type === 'start-node') continue
-    let varName = ''
-    if (type === 'assign-node') {
-      varName = String(n.data.properties?.variableName || '').trim()
-    } else if (type === 'memory-node') {
-      varName = String(n.data.properties?.outputVar || DEFAULT_OUTPUT_VAR[type] || 'memory_context').trim()
-    } else {
-      varName = String(n.data.properties?.outputVar || DEFAULT_OUTPUT_VAR[type] || '').trim()
-    }
-    if (!varName || seen.has(varName)) continue
-    // 运行时保留名，不作为可选输入变量
-    if (varName === 'user_message' || varName === 'userMessage') continue
-    seen.add(varName)
-    const typeLabel = n.data.typeLabel || nodeTypeLabel(type) || type
-    const nodeLabel = n.data.label && n.data.label !== typeLabel ? n.data.label : ''
-    const source = nodeLabel ? `${typeLabel}「${nodeLabel}」` : typeLabel
-    opts.push({ value: varName, label: `${varName} · ${source}` })
-  }
-  return opts
-}
-
-function multiOptions(field) {
-  if (field.key === 'inputVars') {
-    const fromGraph = collectGraphInputVarOptions(selectedNode.value?.id)
-    const known = new Set(fromGraph.map((o) => String(o.value)))
-    const extras = asArray(selectedNode.value?.data?.properties?.inputVars)
-      .filter((v) => !known.has(String(v)))
-      .map((v) => ({ value: v, label: `${v} · 已选（非上游节点或不存在）` }))
-    return [...fromGraph, ...extras]
-  }
-  if (field.key === 'categories') {
-    const fromDict = field.options || []
-    const known = new Set(fromDict.map((o) => String(o.value)))
-    const extras = asArray(selectedNode.value?.data?.properties?.categories)
-      .filter((v) => !known.has(String(v)))
-      .map((v) => ({ value: v, label: `${v} · 已选（字典中已停用或不存在）` }))
-    return [...fromDict, ...extras]
-  }
-  return field.options || []
-}
-
-function jsonFieldText(key) {
-  const val = selectedNode.value?.data?.properties?.[key]
-  if (val == null) return ''
-  if (typeof val === 'string') return val
-  try {
-    return JSON.stringify(val, null, 2)
-  } catch {
-    return String(val)
-  }
-}
-
-function onJsonOrTextInput(field, text) {
-  if (!selectedNode.value) return
-  if (field.widget === 'json' || field.key === 'inputVars' || field.key === 'paramMappings') {
-    try {
-      selectedNode.value.data.properties[field.key] = JSON.parse(text)
-    } catch {
-      selectedNode.value.data.properties[field.key] = text
-    }
-  } else {
-    selectedNode.value.data.properties[field.key] = text
-  }
+  edges.value = applyEdgeCondition(edges.value, id, val)
 }
 
 function clearSelection() {
@@ -776,66 +479,8 @@ function onCanvasKeydown(e) {
   removeSelected()
 }
 
-function createNodeObject(nt, position) {
-  const id = `node_${Date.now()}_${Math.floor(Math.random() * 1000)}`
-  const label = displayTypeLabel(nt)
-  const properties = normalizeNodeProperties(nt.type, nt.defaultProperties || {})
-  if (nt.type === 'intent-node') {
-    // 新建节点不预选字典项，避免被旧 default_props / 缓存带上全量意图
-    properties.categories = []
-    properties.outputVar = nextUniqueIntentOutputVar(properties.outputVar || 'intent')
-  }
-  return {
-    id,
-    type: 'agent',
-    position: position || { x: 80 + nodes.value.length * 40, y: 80 + (nodes.value.length % 4) * 90 },
-    data: {
-      label,
-      typeLabel: label,
-      nodeType: nt.type,
-      properties
-    }
-  }
-}
-
-/** 意图节点：类别用逗号字符串；补默认 outputVar。 */
-function normalizeNodeProperties(nodeType, props) {
-  const properties = { ...(props || {}) }
-  if (nodeType === 'intent-node') {
-    if (typeof properties.categories === 'string') {
-      properties.categories = properties.categories
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    } else if (Array.isArray(properties.categories)) {
-      properties.categories = properties.categories.map(String)
-    } else if (properties.categories == null) {
-      properties.categories = []
-    }
-    if (properties.outputVar == null || String(properties.outputVar).trim() === '') {
-      properties.outputVar = 'intent'
-    }
-  }
-  return properties
-}
-
-/** 新建意图节点时避开已占用的输出变量名。 */
-function nextUniqueIntentOutputVar(preferred = 'intent') {
-  const base = String(preferred || 'intent').trim() || 'intent'
-  const used = new Set(
-    nodes.value
-      .filter((n) => n.data?.nodeType === 'intent-node')
-      .map((n) => String(n.data?.properties?.outputVar || 'intent').trim())
-      .filter(Boolean)
-  )
-  if (!used.has(base)) return base
-  let i = 2
-  while (used.has(`${base}_${i}`)) i += 1
-  return `${base}_${i}`
-}
-
 function addNode(nt) {
-  nodes.value = [...nodes.value, createNodeObject(nt)]
+  nodes.value = [...nodes.value, createNodeObject(nt, undefined, { nodes: nodes.value, agentModelCode: agentModelCode.value })]
 }
 
 function onPaletteDragStart(e, nt) {
@@ -864,218 +509,7 @@ function onCanvasDrop(e) {
     const flowPos = screenToFlowCoordinate({ x: e.clientX, y: e.clientY })
     if (flowPos) position = flowPos
   } catch (_) { /* ignore */ }
-  nodes.value = [...nodes.value, createNodeObject(nt, position)]
-}
-
-function resolveNodeLabel(n) {
-  const fromCatalog = nodeTypeCatalog.value.find((x) => x.type === n.type)?.label
-  const mapped = nodeTypeLabel(n.type, fromCatalog)
-  const text = n.text || ''
-  const englishLegacy = ['Start', 'Intent', 'LLM', 'RAG', 'Tool', 'Condition', 'Assign', 'End', 'Memory']
-  if (!text || englishLegacy.includes(text) || text === n.type || text === n.id) {
-    return mapped
-  }
-  return text
-}
-
-function toFlow(definition) {
-  const rawNodes = definition?.nodes || []
-  const rawEdges = definition?.edges || []
-  nodes.value = rawNodes.map((n, i) => {
-    const label = resolveNodeLabel(n)
-    return {
-      id: n.id,
-      type: 'agent',
-      position: n.position || { x: 80 + i * 220, y: 100 + i * 120 },
-      data: {
-        label,
-        typeLabel: nodeTypeLabel(n.type),
-        nodeType: n.type,
-        properties: normalizeNodeProperties(n.type, n.properties || {})
-      }
-    }
-  })
-  edges.value = rawEdges.map((e, i) => {
-    const props = { ...(e.properties || {}) }
-    const condition = props.condition || ''
-    const label = e.label || props.label || condition || ''
-    return {
-      id: e.id || `e${i}`,
-      source: e.sourceNodeId || e.source,
-      target: e.targetNodeId || e.target,
-      sourceHandle: e.sourceHandle || null,
-      targetHandle: e.targetHandle || null,
-      type: 'default',
-      animated: true,
-      selectable: true,
-      updatable: true,
-      label,
-      data: { properties: props }
-    }
-  })
-  clearSelection()
-}
-
-function toDefinition() {
-  return {
-    nodes: nodes.value.map((n) => ({
-      id: n.id,
-      type: n.data.nodeType,
-      text: n.data.label,
-      position: n.position,
-      properties: n.data.properties || {}
-    })),
-    edges: edges.value.map((e) => {
-      const properties = { ...(e.data?.properties || {}) }
-      if (e.label) properties.label = e.label
-      const edge = {
-        id: e.id,
-        sourceNodeId: e.source,
-        targetNodeId: e.target,
-        label: e.label || '',
-        properties
-      }
-      if (e.sourceHandle) edge.sourceHandle = e.sourceHandle
-      if (e.targetHandle) edge.targetHandle = e.targetHandle
-      return edge
-    }),
-    variables: {}
-  }
-}
-
-function clearCycleHighlight() {
-  edges.value = edges.value.map((e) => {
-    const cls = (e.class || '').replace(/\bcycle-edge\b/g, '').trim()
-    return { ...e, class: cls || undefined, style: undefined }
-  })
-}
-
-function highlightCycle(cyclePath) {
-  const ids = getCycleEdgeIds(nodes.value, edges.value, cyclePath)
-  edges.value = edges.value.map((e) => {
-    if (!ids.has(e.id)) {
-      const cls = (e.class || '').replace(/\bcycle-edge\b/g, '').trim()
-      return { ...e, class: cls || undefined, style: undefined }
-    }
-    return {
-      ...e,
-      class: 'cycle-edge',
-      style: { stroke: '#F56C6C', strokeWidth: 2.5 }
-    }
-  })
-}
-
-async function load() {
-  error.value = ''
-  try {
-    const [agentRes, graphRes, typesRes] = await Promise.all([
-      get(`/api/agents/${agentId.value}`),
-      get(`/api/agents/${agentId.value}/graph`),
-      get('/api/agents/node-types')
-    ])
-    agentName.value = agentRes.data?.agentName || ''
-    publishedVersion.value = agentRes.data?.publishedVersion ?? null
-    nodeTypeCatalog.value = typesRes.data || []
-    graphMeta.value = {
-      workflowType: graphRes.data?.workflowType || '',
-      version: graphRes.data?.version ?? null,
-      enabled: graphRes.data?.enabled ?? null
-    }
-    let def = graphRes.data?.definition
-    if (!def && agentRes.data?.graphDefinition) {
-      try {
-        def = typeof agentRes.data.graphDefinition === 'string'
-          ? JSON.parse(agentRes.data.graphDefinition)
-          : agentRes.data.graphDefinition
-      } catch (_) {
-        def = null
-      }
-    }
-    toFlow(def || { nodes: [], edges: [] })
-  } catch (e) {
-    error.value = e.message
-  }
-}
-
-async function save() {
-  saving.value = true
-  error.value = ''
-  okMsg.value = ''
-  clearCycleHighlight()
-  try {
-    const def = toDefinition()
-    const wfType = graphMeta.value.workflowType || 'SEQ'
-    const cycle = detectCycle(
-      def.nodes,
-      def.edges.map((e) => ({ id: e.id, source: e.sourceNodeId, target: e.targetNodeId }))
-    )
-    if (cycle && wfType !== 'GRAPH') {
-      highlightCycle(cycle)
-      error.value = `存在环路，SEQ/DAG 不允许：${cycle.join(' → ')}。请调整连线或改为 GRAPH 类型。`
-      return
-    }
-    await put(`/api/agents/${agentId.value}/graph`, def)
-    okMsg.value = '草稿已保存'
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    saving.value = false
-  }
-}
-
-async function publish() {
-  publishing.value = true
-  error.value = ''
-  okMsg.value = ''
-  try {
-    await save()
-    if (error.value) return
-    const remark = window.prompt('发布备注（可选）', '') 
-    if (remark === null) return
-    const res = await post(`/api/agents/${agentId.value}/graph/publish`, {
-      remark: remark.trim() || undefined
-    })
-    publishedVersion.value = res.data
-    okMsg.value = `已发布 v${res.data}`
-    if (showVersions.value) await loadVersions()
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    publishing.value = false
-  }
-}
-
-async function toggleVersions() {
-  showVersions.value = !showVersions.value
-  if (showVersions.value) await loadVersions()
-}
-
-async function loadVersions() {
-  try {
-    const res = await get(`/api/agents/${agentId.value}/graph/versions`)
-    versions.value = res.data || []
-  } catch (e) {
-    error.value = e.message
-  }
-}
-
-async function rollback(version) {
-  const ok = await confirmDialog({
-    title: '回滚图版本',
-    message: `确认回滚到 v${version}？将同时覆盖已发布定义与草稿。`
-  })
-  if (!ok) return
-  error.value = ''
-  okMsg.value = ''
-  try {
-    await post(`/api/agents/${agentId.value}/graph/rollback/${version}`)
-    publishedVersion.value = version
-    okMsg.value = `已回滚到 v${version}`
-    await load()
-    if (showVersions.value) await loadVersions()
-  } catch (e) {
-    error.value = e.message
-  }
+  nodes.value = [...nodes.value, createNodeObject(nt, position, { nodes: nodes.value, agentModelCode: agentModelCode.value })]
 }
 
 function formatTime(t) {
@@ -1083,81 +517,5 @@ function formatTime(t) {
   return String(t).replace('T', ' ').slice(0, 19)
 }
 
-function openTestDialog() {
-  testDialogVisible.value = true
-  testResult.value = ''
-}
-
-function closeTestDialog() {
-  testDialogVisible.value = false
-  stopPoll()
-}
-
-function stopPoll() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-
-async function runTest() {
-  if (!testMessage.value.trim()) {
-    error.value = '请输入测试消息'
-    return
-  }
-  testing.value = true
-  error.value = ''
-  testResult.value = ''
-  currentRunId.value = null
-  try {
-    await save()
-    if (error.value) {
-      testing.value = false
-      return
-    }
-    const startRes = await post(`/api/agents/${agentId.value}/graph/test/start`, {
-      message: testMessage.value,
-      userId: testUserId.value || undefined
-    })
-    const runId = startRes.data?.runId
-    currentRunId.value = runId
-    stopPoll()
-    pollTimer = setInterval(async () => {
-      try {
-        const res = await get(`/api/agents/runs/${runId}`)
-        const data = res.data
-        if (!data || data.status === GraphRunStatus.RUNNING) return
-        stopPoll()
-        testing.value = false
-        testResult.value = JSON.stringify(data, null, 2)
-      } catch (err) {
-        stopPoll()
-        testing.value = false
-        testResult.value = 'ERROR: ' + err.message
-      }
-    }, 500)
-  } catch (e) {
-    testing.value = false
-    error.value = e.message
-  }
-}
-
-async function cancelTest() {
-  if (!currentRunId.value) return
-  cancelling.value = true
-  try {
-    await post(`/api/agents/runs/${currentRunId.value}/cancel`)
-    okMsg.value = '已发送终止请求'
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    cancelling.value = false
-  }
-}
-
 onMounted(load)
-
-onUnmounted(() => {
-  stopPoll()
-})
 </script>

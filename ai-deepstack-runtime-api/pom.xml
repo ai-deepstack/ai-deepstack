@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.deepstack.ai</groupId>
+    <artifactId>ai-deepstack</artifactId>
+    <version>0.1.0</version>
+  </parent>
+  <artifactId>ai-deepstack-runtime-api</artifactId>
+  <name>ai-deepstack-runtime-api</name>
+  <description>Graph runtime contract: SPI ports, graph spec/state/event value types</description>
+  <dependencies>
+    <!--
+      只放契约与值类型：SPI 端口、GraphSpec / WorkflowState / WorkflowStreamEvent 等。
+      能力模块（infra / tool / knowledge）实现端口时只依赖本模块，
+      不必把图执行引擎、Spring AI OpenAI starter、MyBatis、Redis、WebFlux 带进编译期。
+    -->
+    <dependency>
+      <groupId>org.deepstack.ai</groupId>
+      <artifactId>ai-deepstack-kernel</artifactId>
+    </dependency>
+    <!-- ChatModel / ToolCallback：端口签名用到的 Spring AI 核心类型 -->
+    <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-model</artifactId>
+    </dependency>
+    <!-- WorkflowState extends AgentState -->
+    <dependency>
+      <groupId>org.bsc.langgraph4j</groupId>
+      <artifactId>langgraph4j-core</artifactId>
+    </dependency>
+    <!-- GraphRuntime.executeStream 返回 Flux -->
+    <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.alibaba.fastjson2</groupId>
+      <artifactId>fastjson2</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+</project>

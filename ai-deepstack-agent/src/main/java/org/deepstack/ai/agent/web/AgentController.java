@@ -36,7 +36,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 智能体管理 API：CRUD、启停、知识库绑定。
+ * Agent 管理 API：CRUD、启停、知识库绑定。
  */
 @Slf4j
 @RestController
@@ -49,7 +49,7 @@ public class AgentController {
     private final KnowledgeBaseService knowledgeBaseService;
 
     /**
-     * 分页查询智能体，并填充模型名与知识库绑定。
+     * 分页查询 Agent，并填充模型名与知识库绑定。
      *
      * @param req 分页与筛选
      * @return 分页响应
@@ -80,7 +80,7 @@ public class AgentController {
     }
 
     /**
-     * 启用智能体下拉选项（value=agentCode / label=名称 · 编排模式）。
+     * 启用 Agent 下拉选项（value=agentCode / label=名称 · 编排模式）。
      */
     @GetMapping("/options")
     public Response<List<SelectOption>> options() {
@@ -94,9 +94,9 @@ public class AgentController {
     }
 
     /**
-     * 按主键查询智能体详情。
+     * 按主键查询 Agent 详情。
      *
-     * @param id 智能体主键
+     * @param id Agent 主键
      * @return 详情；不存在时 data 为 null
      */
     @GetMapping("/{id}")
@@ -118,7 +118,7 @@ public class AgentController {
     }
 
     /**
-     * 创建智能体。
+     * 创建 Agent。
      *
      * @param req 创建请求
      * @return 新主键
@@ -133,7 +133,7 @@ public class AgentController {
     }
 
     /**
-     * 更新智能体。
+     * 更新 Agent。
      *
      * @param req 更新请求
      */
@@ -145,7 +145,7 @@ public class AgentController {
     }
 
     /**
-     * 启用智能体。
+     * 启用 Agent。
      *
      * @param id 主键
      */
@@ -157,7 +157,7 @@ public class AgentController {
     }
 
     /**
-     * 停用智能体。
+     * 停用 Agent。
      *
      * @param id 主键
      */
@@ -169,7 +169,7 @@ public class AgentController {
     }
 
     /**
-     * 删除智能体及其知识库绑定。
+     * 删除 Agent 及其知识库绑定。
      *
      * @param id 主键
      */
@@ -183,7 +183,7 @@ public class AgentController {
     /**
      * 全量重绑知识库（列表顺序即优先级）。
      *
-     * @param id                  智能体主键
+     * @param id                  Agent 主键
      * @param knowledgeBaseCodes 知识库编码列表
      */
     @PutMapping("/{id}/knowledge-bases")
@@ -196,7 +196,7 @@ public class AgentController {
     /**
      * Entity → Response（不含 modelName，由调用方填充）。
      *
-     * @param s 智能体实体
+     * @param s Agent 实体
      * @return 响应 DTO
      */
     private AiAgentResponse toResponseWithoutModelName(AiAgent s) {
@@ -254,7 +254,7 @@ public class AgentController {
     /**
      * 填充知识库绑定列表（含名称）。
      *
-     * @param resp 智能体响应
+     * @param resp Agent 响应
      */
     private void fillKnowledgeBases(AiAgentResponse resp) {
         List<String> codes = aiAgentService.getKnowledgeBaseCodes(resp.getId());

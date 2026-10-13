@@ -1,7 +1,7 @@
 package org.deepstack.ai.engine.support;
 
 
-import org.deepstack.ai.engine.WorkflowState;
+import org.deepstack.ai.engine.api.WorkflowState;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;

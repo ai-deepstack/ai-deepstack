@@ -30,7 +30,7 @@
           />
         </label>
         <label class="filter-field">
-          <span class="filter-label">智能体</span>
+          <span class="filter-label">Agent</span>
           <input
             v-model="filter.agentCode"
             class="filter-input"
@@ -58,7 +58,7 @@
           />
         </label>
         <span v-if="filter.agentId" class="pill filter-chip">
-          智能体 #{{ filter.agentId }}
+          Agent #{{ filter.agentId }}
           <button type="button" class="chip-x" aria-label="清除" @click="clearAgentId">×</button>
         </span>
         <div class="filter-actions">
@@ -91,7 +91,7 @@
           <thead>
             <tr>
               <th>时间</th>
-              <th>智能体</th>
+              <th>Agent</th>
               <th>模式</th>
               <th>状态</th>
               <th>耗时</th>
@@ -260,20 +260,15 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { get, getToken, pageList } from '../api/http'
+import { get, getToken } from '../api/http'
 import PropSelect from '../components/PropSelect.vue'
+import { usePageList } from '../composables/usePageList'
 import { GraphRunStatus, OrchestrateMode } from '../constants/enums'
 import { asId } from '../utils/ids'
 
 const route = useRoute()
 const hours = ref(24)
 const overview = ref(null)
-const list = ref([])
-const pageNum = ref(1)
-const pageSize = 20
-const total = ref(0)
-const totalPage = ref(0)
-const error = ref('')
 const detail = ref(null)
 const exporting = ref(false)
 const insightsOpen = ref(false)
@@ -283,6 +278,28 @@ const filter = reactive({
   traceId: '',
   status: '',
   orchestrateMode: ''
+})
+
+// 列表分页与过期响应丢弃交给 usePageList；error 由它持有并与概况/详情/导出共用
+const {
+  list,
+  pageNum,
+  total,
+  totalPage,
+  error,
+  load: loadList
+} = usePageList({
+  pageSize: 20,
+  fetcher: ({ pageNum: pn, pageSize: ps }) =>
+    get('/api/agent-runs', {
+      pageNum: pn,
+      pageSize: ps,
+      agentId: asId(filter.agentId) || undefined,
+      agentCode: filter.agentCode || undefined,
+      traceId: filter.traceId || undefined,
+      status: filter.status === '' ? undefined : Number(filter.status),
+      orchestrateMode: filter.orchestrateMode === '' ? undefined : Number(filter.orchestrateMode)
+    })
 })
 
 const hoursOptions = [
@@ -369,23 +386,6 @@ async function loadOverview() {
     orchestrateMode: filter.orchestrateMode === '' ? undefined : Number(filter.orchestrateMode)
   })
   overview.value = res.data
-}
-
-async function loadList(page = 1) {
-  const next = Number(page)
-  pageNum.value = Number.isFinite(next) && next > 0 ? next : 1
-  const res = await get('/api/agent-runs', {
-    pageNum: pageNum.value,
-    pageSize,
-    agentId: asId(filter.agentId) || undefined,
-    agentCode: filter.agentCode || undefined,
-    traceId: filter.traceId || undefined,
-    status: filter.status === '' ? undefined : Number(filter.status),
-    orchestrateMode: filter.orchestrateMode === '' ? undefined : Number(filter.orchestrateMode)
-  })
-  list.value = pageList(res)
-  total.value = res.data?.total ?? 0
-  totalPage.value = res.data?.totalPage ?? 0
 }
 
 async function openDetail(id) {

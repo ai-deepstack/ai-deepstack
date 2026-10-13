@@ -11,7 +11,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 智能体告警触发事件（表 agent_alert_event）。
+ * Agent 告警触发事件（表 agent_alert_event）。
  */
 @Data
 @TableName("agent_alert_event")
@@ -24,7 +24,7 @@ public class AgentAlertEvent implements Serializable {
     /** 规则编码，如 ERROR_RATE / P95 / HITL_BACKLOG / RUNNING */
     private String ruleCode;
 
-    /** 关联智能体编码；全站规则可为 null */
+    /** 关联 Agent 编码；全站规则可为 null */
     private String agentCode;
 
     /** 严重级别：warn / critical 等 */

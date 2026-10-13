@@ -11,7 +11,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -37,13 +36,16 @@ public class McpToolSyncService {
 
     /**
      * 同步指定连接的远端工具到 {@code ai_tool}：upsert 现存工具，停用远端已消失的工具。
+     * <p>
+     * 刻意不加事务：{@code listRemoteTools} 是可达 30s 的远端调用，包在事务里会长时间占用
+     * 数据库连接；同步本身可重复执行，中途失败重跑一次即可收敛。
+     * </p>
      *
      * @param connectionCode 连接编码
      * @return 本次 upsert 条数（新建 + 更新）
      * @throws IllegalArgumentException 连接编码为空
      * @throws IllegalStateException    Client 未就绪等运行时错误
      */
-    @Transactional
     public int syncConnection(String connectionCode) {
         if (!StringUtils.hasText(connectionCode)) {
             throw new IllegalArgumentException("connectionCode 不能为空");
@@ -54,25 +56,35 @@ public class McpToolSyncService {
         Set<String> seenCodes = new HashSet<>();
         int inserted = 0;
         int updated = 0;
+        int skipped = 0;
         for (McpSchema.Tool remote : remoteTools) {
             if (remote == null || !StringUtils.hasText(remote.name())) {
                 log.warn("McpToolSyncService: skip remote tool with blank name, connection={}", code);
                 continue;
             }
             String toolCode = toToolCode(code, remote.name());
-            seenCodes.add(toolCode);
-            if (upsertOne(code, remote, toolCode)) {
-                inserted++;
-            } else {
-                updated++;
+            if (!seenCodes.add(toolCode)) {
+                // 清洗后同名（a-b / a.b 都变成 a_b）：加短后缀区分，否则后一条会覆盖前一条
+                toolCode = toolCode + "_" + shortSuffix(remote.name());
+                if (!seenCodes.add(toolCode)) {
+                    log.warn("McpToolSyncService: 同名工具仍冲突，跳过 connection={}, remote={}, toolCode={}",
+                            code, remote.name(), toolCode);
+                    skipped++;
+                    continue;
+                }
+            }
+            switch (upsertOne(code, remote, toolCode)) {
+                case INSERTED -> inserted++;
+                case UPDATED -> updated++;
+                case SKIPPED -> skipped++;
             }
         }
         // 远端已不存在的平台工具自动停用
         int disabled = disableMissing(code, seenCodes);
         // 同步后清 Bridge 缓存，避免沿用旧 Tool 定义
         mcpToolBridge.evictConnection(code);
-        log.info("McpToolSyncService: sync done connection={}, remoteSize={}, inserted={}, updated={}, disabled={}",
-                code, remoteTools.size(), inserted, updated, disabled);
+        log.info("McpToolSyncService: sync done connection={}, remoteSize={}, inserted={}, updated={}, disabled={}, skipped={}",
+                code, remoteTools.size(), inserted, updated, disabled, skipped);
         return inserted + updated;
     }
 
@@ -93,19 +105,33 @@ public class McpToolSyncService {
 
     /**
      * 按 toolCode upsert 一条 MCP 工具记录。
+     * <p>
+     * 只接管「本连接名下」的 MCP 行。toolCode 全局唯一，若该码已被本地 {@code @Tool} 占用
+     * 则跳过——否则会把本地工具原地改成远端工具，绑它的 Agent 静默改调远端。
+     * </p>
      *
      * @param connectionCode 连接编码
      * @param remote         远端工具元数据
      * @param toolCode       平台工具编码
-     * @return {@code true}=新建，{@code false}=更新
+     * @return 本次 upsert 结果
      */
-    private boolean upsertOne(String connectionCode, McpSchema.Tool remote, String toolCode) {
+    private UpsertResult upsertOne(String connectionCode, McpSchema.Tool remote, String toolCode) {
         AiTool existing = aiToolService.getOne(new LambdaQueryWrapper<AiTool>()
                 .eq(AiTool::getToolCode, toolCode)
+                .eq(AiTool::getSourceType, ToolSourceTypeEnum.MCP.getCode())
+                .eq(AiTool::getMcpConnectionCode, connectionCode)
                 .last("LIMIT 1"), false);
         String displayName = StringUtils.hasText(remote.title()) ? remote.title() : remote.name();
         String description = remote.description();
         if (existing == null) {
+            AiTool conflict = aiToolService.getOne(new LambdaQueryWrapper<AiTool>()
+                    .eq(AiTool::getToolCode, toolCode)
+                    .last("LIMIT 1"), false);
+            if (conflict != null) {
+                log.warn("McpToolSyncService: toolCode 已被本地工具占用，跳过 connection={}, remote={}, toolCode={}",
+                        connectionCode, remote.name(), toolCode);
+                return UpsertResult.SKIPPED;
+            }
             AiTool entity = new AiTool();
             entity.setToolCode(toolCode);
             entity.setToolName(displayName);
@@ -118,7 +144,7 @@ public class McpToolSyncService {
             aiToolService.save(entity);
             log.info("McpToolSyncService: inserted toolCode={}, remote={}, connection={}",
                     toolCode, remote.name(), connectionCode);
-            return true;
+            return UpsertResult.INSERTED;
         }
         existing.setToolName(displayName);
         if (StringUtils.hasText(description)) {
@@ -133,7 +159,17 @@ public class McpToolSyncService {
         aiToolService.updateById(existing);
         log.debug("McpToolSyncService: updated toolCode={}, remote={}, connection={}",
                 toolCode, remote.name(), connectionCode);
-        return false;
+        return UpsertResult.UPDATED;
+    }
+
+    /** 单条 upsert 的结果。 */
+    private enum UpsertResult {
+        INSERTED, UPDATED, SKIPPED
+    }
+
+    /** 取远端名的短哈希后缀，用于清洗后同名的工具消歧。 */
+    private static String shortSuffix(String remoteName) {
+        return Integer.toHexString(remoteName.hashCode() & 0xffff);
     }
 
     /**

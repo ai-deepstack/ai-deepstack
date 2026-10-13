@@ -20,7 +20,7 @@
 
 1. 落地 `enable_graph`：建图 + 召回扩边 + 控制台展示。
 2. 实体/关系由 **CHAT 大模型** JSON 抽取写入图。
-3. 智能体绑定哪些库，向量/全文/图谱都只在这些库内进行。
+3. Agent 绑定哪些库，向量/全文/图谱都只在这些库内进行。
 4. 向量 + 全文并发；图谱在 hybrid 种子之后对多种子并发 expand；多库召回并行（限流）。
 5. 图谱不可用或关闭时，RAG 与现网一致；写图失败不回滚向量。
 6. 控制台知识库图谱页（Vue Flow 只读）：按库/按文档浏览、懒加载 expand、图例与属性面板。
@@ -276,11 +276,11 @@ for (String code : kbCodes) {
 
 ## 前端：知识图谱展示
 
-与智能体编排画布（`GraphEditor`）分离：本页是 Document / Chunk / Entity 知识图。
+与 Agent 编排画布（`GraphEditor`）分离：本页是 Document / Chunk / Entity 知识图。
 
 ### 入口与交互
 
-- 路由：`/kb/:baseCode/graph`（知识库页入口按钮「查看图谱」）。
+- 路由：`/knowledge/:baseCode/graph`（知识库页入口按钮「查看图谱」）。
 - `enable_graph=0` 或 `/api/graph/info` 未就绪：说明文案，不渲染空画布。
 - 只读：缩放、拖拽、图例分色、点选看属性。
 - 按 `documentId` 过滤；默认 `hops=1`、`limit=80`；选中节点可「展开邻居」懒加载。
@@ -295,7 +295,7 @@ for (String code : kbCodes) {
 | 接口 | 说明 |
 | --- | --- |
 | `GET /api/kb/{baseCode}/graph/summary` | 就绪状态、节点/边约数、最近写图时间 |
-| `GET /api/kb/{baseCode}/graph/view` | `{ nodes, edges }`；参数 `documentId?`、`startKey?`、`hops`、`limit` |
+| `GET /api/kb/{baseCode}/graph` | `{ nodes, edges }`；参数 `documentId?`、`startKey?`、`hops`、`limit` |
 | `PUT /api/kb/docs/{id}/regraph` | 写图重试 |
 | GraphStore expand | 返回节点**且**边（或 view 内组装），否则前端无法连线 |
 

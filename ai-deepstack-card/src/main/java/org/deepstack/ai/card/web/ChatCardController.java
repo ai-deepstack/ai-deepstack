@@ -5,12 +5,15 @@ import org.deepstack.ai.card.model.dto.response.CardActionResponse;
 import org.deepstack.ai.card.model.dto.response.ChatCard;
 import org.deepstack.ai.card.service.ChatCardService;
 import org.deepstack.ai.kernel.auth.LoginUser;
+import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
+import org.deepstack.ai.kernel.exception.BusinessException;
 import org.deepstack.ai.kernel.model.AppUserInfo;
 import org.deepstack.ai.kernel.model.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -83,29 +86,55 @@ public class ChatCardController {
     /**
      * 获取卡片详情。
      *
-     * @param cardId 卡片 id
+     * @param cardId    卡片 id
+     * @param loginUser 当前登录用户（用于归属校验）
      * @return 卡片详情
      */
     @GetMapping("/{cardId}")
-    public Response<ChatCard> get(@PathVariable("cardId") String cardId) {
+    public Response<ChatCard> get(@PathVariable("cardId") String cardId,
+                                  @LoginUser AppUserInfo loginUser) {
         log.info("查询卡片详情: cardId={}", cardId);
-        return Response.success(chatCardService.getByCardId(cardId));
+        ChatCard card = chatCardService.getByCardId(cardId);
+        requireOwnership(card != null ? card.getUserId() : null, loginUser, cardId);
+        return Response.success(card);
     }
 
     /**
-     * 查询用户已确认的卡片历史。
+     * 查询当前登录用户已确认的卡片历史。
      *
-     * @param userId   用户 id
-     * @param cardType 可选卡片类型过滤
-     * @param limit    返回条数上限，默认 10
+     * @param loginUser 当前登录用户
+     * @param cardType  可选卡片类型过滤
+     * @param limit     返回条数上限，默认 10
      * @return 已确认卡片列表
      */
     @GetMapping("/history")
     public Response<List<ChatCard>> history(
-            @RequestParam("userId") String userId,
+            @LoginUser AppUserInfo loginUser,
             @RequestParam(value = "cardType", required = false) String cardType,
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
+        // 只查自己的卡片：userId 取自登录态，不接受请求参数
+        String userId = loginUser != null && loginUser.getUserId() != null
+                ? String.valueOf(loginUser.getUserId()) : null;
         log.info("查询卡片历史: userId={}, cardType={}, limit={}", userId, cardType, limit);
         return Response.success(chatCardService.listConfirmedCards(userId, cardType, limit));
+    }
+
+    /**
+     * 卡片归属校验：卡片带了 userId 且与登录用户不一致时拒绝。
+     *
+     * @param cardUserId 卡片归属用户
+     * @param loginUser  当前登录用户
+     * @param cardId     卡片 id（仅用于日志）
+     */
+    private void requireOwnership(String cardUserId, AppUserInfo loginUser, String cardId) {
+        if (!StringUtils.hasText(cardUserId)) {
+            return;
+        }
+        String current = loginUser != null && loginUser.getUserId() != null
+                ? String.valueOf(loginUser.getUserId()) : null;
+        if (!cardUserId.equals(current)) {
+            log.warn("拒绝越权读取卡片: cardId={}, cardUserId={}, loginUserId={}", cardId, cardUserId, current);
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED.getCode(), "无权查看该卡片");
+        }
     }
 }

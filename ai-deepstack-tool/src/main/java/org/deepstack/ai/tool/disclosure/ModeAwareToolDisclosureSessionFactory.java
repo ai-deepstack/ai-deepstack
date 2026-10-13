@@ -50,7 +50,7 @@ public class ModeAwareToolDisclosureSessionFactory implements ToolDisclosureSess
     /**
      * 打开一轮工具披露会话。
      *
-     * @param allowToolCodes 智能体绑定的允许工具编码集合
+     * @param allowToolCodes Agent 绑定的允许工具编码集合
      * @return 全量或渐进式披露会话
      */
     @Override

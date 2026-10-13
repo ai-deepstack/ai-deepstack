@@ -270,7 +270,14 @@ public class KnowledgeChunkServiceImpl extends ServiceImpl<KnowledgeChunkMapper,
             seedIdSet.add(s.getId());
         }
 
-        // neighborChunkId → 最佳 graphScore（0.7/(1+hop)）；多线程写入
+        // 图邻居必须归一到 seeds 同一量纲再加权：RRF 分最大只有 2/(K+1)≈0.03，
+        // 若直接拿 0.7/(1+hop) 与它比大小，每个图邻居都会压过所有种子，与「降权并入」正好相反
+        double seedScale = seeds.stream()
+                .mapToDouble(s -> scores.getOrDefault(s.getId(), 0.0))
+                .max()
+                .orElse(0.0);
+
+        // neighborChunkId → 最佳 graphScore（seedScale/(1+hop)）；多线程写入
         Map<Long, Double> graphScores = new ConcurrentHashMap<>();
         Semaphore lim = new Semaphore(Math.min(expandConcurrency, seeds.size()));
         List<CompletableFuture<Void>> futures = new ArrayList<>(seeds.size());
@@ -290,9 +297,9 @@ public class KnowledgeChunkServiceImpl extends ServiceImpl<KnowledgeChunkMapper,
                         if (chunkId == null || seedIdSet.contains(chunkId)) {
                             continue;
                         }
-                        // graphScore = 0.7/(1+hop)；无 hop 属性时按配置 hops 保守降权
+                        // graphScore = seedScale/(1+hop)；无 hop 属性时按配置 hops 保守降权
                         int hop = extractHop(n, hops);
-                        double gScore = 0.7 / (1.0 + hop);
+                        double gScore = seedScale / (1.0 + hop);
                         graphScores.merge(chunkId, gScore, Math::max);
                     }
                     log.debug("expand seed 完成: chunkId={}, neighbors={}, scoredChunks={}",
@@ -455,7 +462,11 @@ public class KnowledgeChunkServiceImpl extends ServiceImpl<KnowledgeChunkMapper,
     // ===== private =====
 
     /**
-     * 等待阶段 A 的一路结果。超时则取消任务并按空列表继续，不让 join 一直堵住召回。
+     * 等待阶段 A 的一路结果。超时则标记该 future 取消并按空列表继续，不让 join 一直堵住召回。
+     * <p>
+     * {@code cancel(true)} 只是让等待方立即返回，底层 JDBC / HTTP 调用未必响应中断；
+     * 真正兜底的是语句超时、HTTP 读超时和有界线程池（见 {@code knowledgeRecallExecutor}）。
+     * </p>
      */
     private List<KnowledgeChunk> awaitStage(String lane, Long knowledgeBaseId,
                                             CompletableFuture<List<KnowledgeChunk>> future,

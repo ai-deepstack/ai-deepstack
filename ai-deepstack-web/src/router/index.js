@@ -13,6 +13,7 @@ import GraphEditor from '../pages/GraphEditor.vue'
 import Settings from '../pages/Settings.vue'
 import AgentRuns from '../pages/AgentRuns.vue'
 import AgentStats from '../pages/AgentStats.vue'
+import AgentDetail from '../pages/AgentDetail.vue'
 import Alerts from '../pages/Alerts.vue'
 
 const router = createRouter({
@@ -26,6 +27,7 @@ const router = createRouter({
     { path: '/agents', component: Agents },
     { path: '/agents/:id/stats', component: AgentStats },
     { path: '/agents/:id/graph', component: GraphEditor },
+    { path: '/agents/:id', component: AgentDetail },
     { path: '/models', component: Models },
     { path: '/tools', component: Tools },
     { path: '/mcp', component: McpConnections },

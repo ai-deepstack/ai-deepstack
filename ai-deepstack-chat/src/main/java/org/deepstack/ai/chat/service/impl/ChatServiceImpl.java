@@ -71,7 +71,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li>模型供应商/base-url/api-key 由 ai_model 表配置，通过 {@link AiChatClientFactory} 按 modelCode 动态构建</li>
  *   <li>L1 系统提示词/温度/max_tokens/top_p/记忆窗口/响应格式由 ai_agent 表配置</li>
  *   <li>L2 用户全域提示词通过 {@link UserPromptService} 加载</li>
- *   <li>L3 RAG 知识检索：按智能体绑定的知识库，经 KnowledgeRetrieveFacade 多库并行召回后注入 system prompt</li>
+ *   <li>L3 RAG 知识检索：按 Agent 绑定的知识库，经 KnowledgeRetrieveFacade 多库并行召回后注入 system prompt</li>
  *   <li>L4 会话记忆通过 ChatMemory advisor + conversationId 隔离</li>
  *   <li>L5 长期记忆：enable_long_term_memory 时经 {@link LongTermMemoryStore} 召回注入</li>
  * </ul>
@@ -109,12 +109,12 @@ public class ChatServiceImpl implements ChatService {
     private final Executor chatContextExecutor;
 
     /**
-     * 同步对话：按智能体配置驱动模型 / 工具 / RAG / 记忆。
+     * 同步对话：按 Agent 配置驱动模型 / 工具 / RAG / 记忆。
      * <p>GRAPH 模式委托 {@link AgentChatOrchestrator}；否则走本类 ChatClient 直连路径。</p>
      *
      * @param request 对话请求（须含 agentCode、message）
      * @return 对话响应（含 usage / cards）
-     * @throws BusinessException 参数非法，或智能体/模型不存在、已禁用
+     * @throws BusinessException 参数非法，或 Agent/模型不存在、已禁用
      */
     @Override
     public ChatResponse chat(ChatRequest request) {
@@ -132,9 +132,16 @@ public class ChatServiceImpl implements ChatService {
                 ctx.conversationId, request.getMessage());
 
         long startMs = System.currentTimeMillis();
-        AgentWorkflowRun runLog = agentRunService.start(
-                ctx.scene.getId(), ctx.scene.getAgentCode(), OrchestrateModeEnum.CHAT,
-                ctx.conversationId, request.getMessage(), null, null, null, loginUserId);
+        AgentWorkflowRun runLog;
+        try {
+            runLog = agentRunService.start(
+                    ctx.scene.getId(), ctx.scene.getAgentCode(), OrchestrateModeEnum.CHAT,
+                    ctx.conversationId, request.getMessage(), null, null, null, loginUserId);
+        } catch (RuntimeException e) {
+            // 配额已占用；落库失败必须释放并发槽
+            finishQuota(loginUserId, ctx.scene.getAgentCode(), 0);
+            throw e;
+        }
 
         log.info("Chat invoke (sync): agentCode={}, modelCode={}, provider={}, apiModel={}, baseUrl={}, conversationId={}, runId={}",
                 ctx.scene.getAgentCode(), ctx.scene.getModelCode(),
@@ -190,13 +197,13 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * SSE 流式对话：按智能体配置驱动模型 / 工具 / RAG / 记忆。
+     * SSE 流式对话：按 Agent 配置驱动模型 / 工具 / RAG / 记忆。
      * <p>GRAPH 模式委托 {@link AgentChatOrchestrator}；否则走本类 ChatClient 流式路径，
      * 结束后追加 card / usage 事件。</p>
      *
      * @param request 对话请求（须含 agentCode、message）
      * @return SSE 事件流（默认 data 为文本 chunk；另有 event=card / usage）
-     * @throws BusinessException 参数非法，或智能体/模型不存在、已禁用（在订阅前 prepare 阶段抛出）
+     * @throws BusinessException 参数非法，或 Agent/模型不存在、已禁用（在订阅前 prepare 阶段抛出）
      */
     @Override
     public Flux<ServerSentEvent<String>> streamChat(ChatRequest request) {
@@ -218,9 +225,16 @@ public class ChatServiceImpl implements ChatService {
         }
 
         long startMs = System.currentTimeMillis();
-        AgentWorkflowRun runLog = agentRunService.start(
-                ctx.scene.getId(), ctx.scene.getAgentCode(), OrchestrateModeEnum.CHAT,
-                ctx.conversationId, request.getMessage(), null, null, null, loginUserId);
+        AgentWorkflowRun runLog;
+        try {
+            runLog = agentRunService.start(
+                    ctx.scene.getId(), ctx.scene.getAgentCode(), OrchestrateModeEnum.CHAT,
+                    ctx.conversationId, request.getMessage(), null, null, null, loginUserId);
+        } catch (RuntimeException e) {
+            // 配额已占用；落库失败必须释放并发槽
+            finishQuota(loginUserId, ctx.scene.getAgentCode(), 0);
+            throw e;
+        }
 
         log.info("Chat invoke (stream): agentCode={}, modelCode={}, provider={}, apiModel={}, baseUrl={}, conversationId={}, runId={}",
                 ctx.scene.getAgentCode(), ctx.scene.getModelCode(),
@@ -357,11 +371,11 @@ public class ChatServiceImpl implements ChatService {
     // ============================================================
 
     /**
-     * 校验请求、加载智能体/模型，解析 conversationId 并组装 ChatContext。
+     * 校验请求、加载 Agent/模型，解析 conversationId 并组装 ChatContext。
      *
      * @param request 对话请求（须含 agentCode、message）
-     * @return 已就绪的对话上下文（智能体、模型、会话 ID、系统提示词等）
-     * @throws BusinessException agentCode/message 为空，或智能体/模型不存在、已禁用
+     * @return 已就绪的对话上下文（Agent、模型、会话 ID、系统提示词等）
+     * @throws BusinessException agentCode/message 为空，或 Agent/模型不存在、已禁用
      */
     private ChatContext prepare(ChatRequest request) {
         log.info("prepare: agentCode={}, conversationId={}, userId={}",
@@ -375,14 +389,14 @@ public class ChatServiceImpl implements ChatService {
 
         AiAgent scene = aiAgentService.getByAgentCode(request.getAgentCode());
         if (scene == null) {
-            log.warn("prepare 失败: 智能体不存在或已禁用 agentCode={}", request.getAgentCode());
+            log.warn("prepare 失败: Agent 不存在或已禁用 agentCode={}", request.getAgentCode());
             throw new BusinessException(CommonErrorCode.NOT_FOUND.getCode(),
-                    "智能体不存在或已禁用: " + request.getAgentCode());
+                    "Agent 不存在或已禁用: " + request.getAgentCode());
         }
         if (!StringUtils.hasText(scene.getModelCode())) {
-            log.warn("prepare 失败: 智能体未绑定模型 agentCode={}", request.getAgentCode());
+            log.warn("prepare 失败: Agent 未绑定模型 agentCode={}", request.getAgentCode());
             throw new BusinessException(CommonErrorCode.INVALID_PARAM.getCode(),
-                    "智能体未绑定模型: " + request.getAgentCode());
+                    "Agent 未绑定模型: " + request.getAgentCode());
         }
 
         AiModel modelConfig = aiModelService.getByModelCode(scene.getModelCode());
@@ -453,7 +467,7 @@ public class ChatServiceImpl implements ChatService {
     /**
      * 解析会话 ID：关闭记忆时生成一次性 ID，否则沿用请求或新建 UUID。
      *
-     * @param scene     智能体配置（读 enableMemory）
+     * @param scene     Agent 配置（读 enableMemory）
      * @param requested 请求侧传入的 conversationId，可为 null
      * @return 实际使用的会话 ID（无记忆时带 {@link ConversationIds#NO_MEMORY_PREFIX} 前缀）
      */
@@ -462,7 +476,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * 组装多层系统提示词：L1 智能体 + L2 用户画像 + L3 RAG + L5 长期记忆 + 输出格式约束。
+     * 组装多层系统提示词：L1 Agent + L2 用户画像 + L3 RAG + L5 长期记忆 + 输出格式约束。
      * <p>画像 / RAG / 记忆在 {@code chatContextExecutor} 并行获取，再按固定顺序写入；
      * 总等待受 {@code chat.context.timeout-ms} 约束；各阶段耗时写入 {@code stages}（O7）。</p>
      */
@@ -608,7 +622,7 @@ public class ChatServiceImpl implements ChatService {
      * CHAT 模式：启用长期记忆时，将本轮用户话写入记忆（图谱由 enable_graph_memory 控制）。
      * <p>写入失败仅打日志，不影响主对话返回。</p>
      *
-     * @param scene   智能体配置
+     * @param scene   Agent 配置
      * @param request 本轮对话请求（取 userId、message、conversationId）
      */
     private void maybeRememberUserMessage(AiAgent scene, ChatRequest request) {
@@ -638,13 +652,13 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * RAG 知识检索：按智能体绑定的知识库召回。
+     * RAG 知识检索：按 Agent 绑定的知识库召回。
      * <p>
      * 经 {@link KnowledgeRetrieveFacade#retrieveAll} 多库并行（Semaphore 限流），
      * 按绑定顺序拼接；单库超时/失败不影响其他库。
      * </p>
      *
-     * @param scene   智能体配置
+     * @param scene   Agent 配置
      * @param request 对话请求
      * @return 拼接后的知识上下文文本，无结果返回 null
      */
@@ -678,7 +692,7 @@ public class ChatServiceImpl implements ChatService {
      * 构建模型调用参数：apiModelName 来自 ai_model，温度/max_tokens/top_p/响应格式来自 ai_agent。
      *
      * @param modelConfig 启用中的模型配置
-     * @param scene       智能体配置（参数覆盖）
+     * @param scene       Agent 配置（参数覆盖）
      * @return OpenAiChatOptions 构建器（由调用方挂到 request）
      */
     private OpenAiChatOptions.Builder buildChatOptions(AiModel modelConfig, AiAgent scene) {
@@ -724,7 +738,7 @@ public class ChatServiceImpl implements ChatService {
      * 释放并发占位并记录日 token。
      *
      * @param loginUserId 登录用户
-     * @param agentCode   智能体编码
+     * @param agentCode   Agent 编码
      * @param tokens      本轮 token
      */
     private void finishQuota(Long loginUserId, String agentCode, Integer tokens) {
@@ -737,9 +751,9 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * 单次对话请求的内部上下文（智能体、模型、会话、提示词与用户消息）。
+     * 单次对话请求的内部上下文（Agent、模型、会话、提示词与用户消息）。
      *
-     * @param scene          智能体配置
+     * @param scene          Agent 配置
      * @param modelConfig    模型配置
      * @param chatModel      按 modelCode 构建的 ChatModel
      * @param conversationId 解析后的会话 ID

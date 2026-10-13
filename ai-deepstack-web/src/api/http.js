@@ -58,6 +58,12 @@ export async function http(path, options = {}) {
   if (token) headers.Authorization = `Bearer ${token}`
 
   const res = await fetch(path, { ...options, headers })
+  // 401 可能带空体或 HTML（如代理），先统一登出，避免用户卡在通用错误
+  if (res.status === 401) {
+    clearAuth()
+    if (location.pathname !== '/login') location.href = '/login'
+    throw new Error('登录已过期，请重新登录')
+  }
   const contentType = res.headers.get('content-type') || ''
   if (!contentType.includes('application/json')) {
     if (!res.ok) throw new Error(`请求失败 (${res.status})`)
@@ -65,7 +71,7 @@ export async function http(path, options = {}) {
   }
   const body = await res.json()
   if (!res.ok || (body.code != null && body.code !== 200)) {
-    if (body.code === 401 || res.status === 401) {
+    if (body.code === 401) {
       clearAuth()
       if (location.pathname !== '/login') location.href = '/login'
     }

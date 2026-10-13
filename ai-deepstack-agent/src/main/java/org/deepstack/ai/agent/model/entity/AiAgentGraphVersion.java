@@ -12,7 +12,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 智能体已发布图版本历史（供回滚）。
+ * Agent 已发布图版本历史（供回滚）。
  */
 @Data
 @TableName(value = "ai_agent_graph_version", autoResultMap = true)
@@ -22,7 +22,7 @@ public class AiAgentGraphVersion implements Serializable {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /** 智能体主键 */
+    /** Agent 主键 */
     private Long agentId;
 
     /** 发布版本号 */

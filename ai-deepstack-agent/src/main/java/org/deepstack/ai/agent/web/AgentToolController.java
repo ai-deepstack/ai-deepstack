@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 智能体工具绑定 API。
+ * Agent 工具绑定 API。
  */
 @Slf4j
 @RestController
@@ -27,9 +27,9 @@ public class AgentToolController {
     private final AgentToolBindingService agentToolBindingService;
 
     /**
-     * 列出智能体已绑定的工具（按 priority）。
+     * 列出 Agent 已绑定的工具（按 priority）。
      *
-     * @param id 智能体主键
+     * @param id Agent 主键
      * @return 绑定列表
      */
     @GetMapping("/{id}/tools")
@@ -39,9 +39,9 @@ public class AgentToolController {
     }
 
     /**
-     * 全量重绑智能体工具（列表顺序即优先级）。
+     * 全量重绑 Agent 工具（列表顺序即优先级）。
      *
-     * @param id      智能体主键
+     * @param id      Agent 主键
      * @param toolIds 工具主键列表；null 视为清空
      */
     @PutMapping("/{id}/tools")

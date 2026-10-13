@@ -3,7 +3,7 @@
     <header class="page-head">
       <div>
         <h1>工具</h1>
-        <p>本地工具和 MCP 同步进来的工具。在智能体页勾选绑定后才会参与对话。</p>
+        <p>本地工具和 MCP 同步进来的工具。在 Agent 页勾选绑定后才会参与对话。</p>
       </div>
       <button class="btn" type="button" @click="openCreate">注册本地工具</button>
     </header>
@@ -96,13 +96,18 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { get, pageList, post, put } from '../api/http'
+import { get, post, put } from '../api/http'
+import { usePageList } from '../composables/usePageList'
 import { EnabledStatus, ToolSourceType } from '../constants/enums'
 
-const list = ref([])
-const error = ref('')
 const saving = ref(false)
 const drawer = ref(false)
+
+// 列表分页、过期响应丢弃与错误展示统一交给 usePageList
+const { list, error, load } = usePageList({
+  pageSize: 100,
+  fetcher: ({ pageNum, pageSize }) => get('/api/tools/page', { pageNum, pageSize })
+})
 const form = reactive({
   id: null,
   toolCode: '',
@@ -117,16 +122,6 @@ const form = reactive({
 
 function isMcp(item) {
   return item?.sourceType === ToolSourceType.MCP
-}
-
-async function load() {
-  error.value = ''
-  try {
-    const res = await get('/api/tools/page', { pageNum: 1, pageSize: 100 })
-    list.value = pageList(res)
-  } catch (e) {
-    error.value = e.message
-  }
 }
 
 function openCreate() {

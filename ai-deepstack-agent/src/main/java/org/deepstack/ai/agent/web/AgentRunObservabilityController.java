@@ -11,7 +11,7 @@ import org.deepstack.ai.kernel.enums.agent.GraphRunStatusEnum;
 import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
 import org.deepstack.ai.kernel.model.PageInfo;
 import org.deepstack.ai.kernel.model.Response;
-import org.deepstack.ai.runtime.WorkflowCompiler;
+import org.deepstack.ai.runtime.spi.GraphRuntime;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 智能体运行可观测 API：概览 / 列表 / 详情 / JSONL 导出。
+ * Agent 运行可观测 API：概览 / 列表 / 详情 / JSONL 导出。
  */
 @Slf4j
 @RestController
@@ -45,7 +45,7 @@ public class AgentRunObservabilityController {
     private static final int EXPORT_PAGE_SIZE = 200;
 
     private final AgentRunService agentRunService;
-    private final WorkflowCompiler workflowCompiler;
+    private final GraphRuntime graphRuntime;
 
     /**
      * 运营概览：KPI、失败 Top、慢请求、趋势。
@@ -59,8 +59,8 @@ public class AgentRunObservabilityController {
         Map<String, Object> data = agentRunService.overview(hours, agentId, orchestrateMode);
         Map<String, Object> health = new LinkedHashMap<>();
         try {
-            health.put("compileCacheSize", workflowCompiler.getCompileCacheSize());
-            health.put("runningExecutions", workflowCompiler.getRunningExecutionCount());
+            health.put("compileCacheSize", graphRuntime.getCompileCacheSize());
+            health.put("runningExecutions", graphRuntime.getRunningExecutionCount());
         } catch (Exception e) {
             log.warn("overview health 采集失败: {}", e.getMessage());
             health.put("error", e.getMessage());
@@ -93,8 +93,8 @@ public class AgentRunObservabilityController {
     /**
      * 按条件流式导出运行记录为 JSONL（NDJSON）。
      *
-     * @param agentCode 智能体编码过滤
-     * @param agentId   智能体主键过滤
+     * @param agentCode Agent 编码过滤
+     * @param agentId   Agent 主键过滤
      * @param from      创建时间起
      * @param to        创建时间止
      * @return 附件流

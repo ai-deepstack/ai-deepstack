@@ -1,6 +1,6 @@
 package org.deepstack.ai.engine.node;
 
-import org.deepstack.ai.engine.WorkflowState;
+import org.deepstack.ai.engine.api.WorkflowState;
 import org.deepstack.ai.engine.support.MessageTextExtractor;
 import org.deepstack.ai.memory.MemoryPort;
 import org.deepstack.ai.runtime.AgentNodeContext;
@@ -42,9 +42,19 @@ public class MemoryNode implements AsyncNodeAction<WorkflowState> {
                     "write".equalsIgnoreCase(mode) ? Map.of() : Map.of("memory_context", ""));
         }
 
-        String userId = context.currentUserId();
-        String agentCode = context.currentAgentCode();
-        String conversationId = context.currentConversationId();
+        // 优先取 state：LangGraph 可能在其他线程执行节点，ThreadLocal 上的 RunContext 会丢失
+        String userId = stateString(state, WorkflowState.USER_ID);
+        if (!StringUtils.hasText(userId)) {
+            userId = context.currentUserId(state);
+        }
+        String agentCode = stateString(state, WorkflowState.AGENT_CODE);
+        if (!StringUtils.hasText(agentCode)) {
+            agentCode = context.currentAgentCode(state);
+        }
+        String conversationId = stateString(state, WorkflowState.CONVERSATION_ID);
+        if (!StringUtils.hasText(conversationId)) {
+            conversationId = context.currentConversationId(state);
+        }
         String lastText = MessageTextExtractor.lastMessageText(
                 state.value(WorkflowState.MESSAGES).orElse(List.of()));
 
@@ -61,5 +71,10 @@ public class MemoryNode implements AsyncNodeAction<WorkflowState> {
         log.info("MemoryNode read: userId={}, agentCode={}, graph={}, chars={}",
                 userId, agentCode, enableGraph, ctx != null ? ctx.length() : 0);
         return CompletableFuture.completedFuture(Map.of("memory_context", ctx != null ? ctx : ""));
+    }
+
+    /** 读取 state 中的字符串值；缺失时返回 null。 */
+    private static String stateString(WorkflowState state, String key) {
+        return state.value(key).map(String::valueOf).orElse(null);
     }
 }

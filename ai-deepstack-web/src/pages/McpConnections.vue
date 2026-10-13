@@ -3,7 +3,7 @@
     <header class="page-head">
       <div>
         <h1>MCP</h1>
-        <p>配置 MCP 服务连接。同步后工具会出现在工具列表，再去智能体页绑定。</p>
+        <p>配置 MCP 服务连接。同步后工具会出现在工具列表，再去 Agent 页绑定。</p>
       </div>
       <button class="btn" type="button" @click="openCreate">添加连接</button>
     </header>
@@ -99,7 +99,7 @@
               <input v-model="form.command" placeholder="npx" />
             </div>
             <div class="field">
-              <label>Args (JSON 数组)</label>
+              <label>Args（JSON 数组）</label>
               <textarea
                 v-model="form.argsJson"
                 rows="3"
@@ -117,7 +117,7 @@
               <input v-model="form.secret" type="password" autocomplete="off" />
             </div>
             <div class="field">
-              <label>额外 Headers (JSON 对象，可选)</label>
+              <label>额外 Headers（JSON 对象，可选）</label>
               <textarea v-model="form.headersJson" rows="2" placeholder='{"X-Tenant":"demo"}' />
             </div>
           </template>
@@ -137,18 +137,23 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { del, get, pageList, post, put } from '../api/http'
+import { del, get, post, put } from '../api/http'
 import PropNumber from '../components/PropNumber.vue'
 import PropSelect from '../components/PropSelect.vue'
+import { usePageList } from '../composables/usePageList'
 import { EnabledStatus, McpTransport, transportOptions } from '../constants/enums'
 import { confirmDialog } from '../composables/useConfirm'
 
-const list = ref([])
-const error = ref('')
 const saving = ref(false)
 const drawer = ref(null)
 const syncingId = ref(null)
 const secret = ref('')
+
+// 列表分页、过期响应丢弃与错误展示统一交给 usePageList
+const { list, error, load } = usePageList({
+  pageSize: 100,
+  fetcher: ({ pageNum, pageSize }) => get('/api/mcp/connections/page', { pageNum, pageSize })
+})
 
 
 const form = reactive({
@@ -164,16 +169,6 @@ const form = reactive({
   requestTimeoutMs: 30000,
   enabled: 1
 })
-
-async function load() {
-  error.value = ''
-  try {
-    const res = await get('/api/mcp/connections/page', { pageNum: 1, pageSize: 100 })
-    list.value = pageList(res)
-  } catch (e) {
-    error.value = e.message
-  }
-}
 
 function resetForm() {
   Object.assign(form, {

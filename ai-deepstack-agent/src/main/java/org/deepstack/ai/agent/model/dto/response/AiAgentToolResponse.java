@@ -5,7 +5,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 智能体-工具绑定视图
+ * Agent-工具绑定视图
  *
  */
 @Data
@@ -17,7 +17,7 @@ public class AiAgentToolResponse implements Serializable {
     private Long id;
 
     /**
-     * 智能体 id
+     * Agent id
      */
     private Long agentId;
 

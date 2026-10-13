@@ -1,6 +1,7 @@
 package org.deepstack.ai.agent.observability;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.deepstack.ai.agent.mapper.AgentWorkflowRunMapper;
 import org.deepstack.ai.agent.model.entity.AgentWorkflowRun;
@@ -11,7 +12,7 @@ import org.deepstack.ai.kernel.enums.agent.OrchestrateModeEnum;
 import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
 import org.deepstack.ai.kernel.exception.BusinessException;
 import org.deepstack.ai.kernel.observability.AgentQuotaKeys;
-import org.deepstack.ai.runtime.WorkflowCompiler;
+import org.deepstack.ai.runtime.spi.GraphRuntime;
 import org.deepstack.ai.settings.SysConfigKeys;
 import org.deepstack.ai.settings.SysConfigPort;
 import org.springframework.beans.factory.ObjectProvider;
@@ -24,13 +25,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 智能体运行配额：全站并发 → 智能体 QPS/并发/日 token → 账号 QPS/并发/日 token。
+ * Agent 运行配额：全站并发 → Agent QPS/并发/日 token → 账号 QPS/并发/日 token。
  * <p>
  * Redis 可用时用计数器；否则进程内 {@link ConcurrentHashMap} 兜底（带 TTL 清理）。
  * 键名统一见 {@link AgentQuotaKeys}。
@@ -51,7 +53,7 @@ public class AgentQuotaService {
     private final AgentWorkflowRunMapper runMapper;
     private final SysConfigPort sysConfigPort;
     private final ObjectProvider<StringRedisTemplate> redisProvider;
-    private final ObjectProvider<WorkflowCompiler> workflowCompilerProvider;
+    private final ObjectProvider<GraphRuntime> graphRuntimeProvider;
     private final AgentRunService agentRunService;
 
     /** 进程内 QPS 滑动窗口计数：key → (窗口起点毫秒, 计数)。 */
@@ -67,18 +69,18 @@ public class AgentQuotaService {
      * @param runMapper                 运行表 Mapper
      * @param sysConfigPort             系统配置
      * @param redisProvider             Redis（可选）
-     * @param workflowCompilerProvider  工作流编译器（可选）
+     * @param graphRuntimeProvider      图执行运行时（可选，用于读在跑数）
      * @param agentRunService           运行落库（拒绝行）；Lazy 避免与其它 Bean 循环
      */
     public AgentQuotaService(AgentWorkflowRunMapper runMapper,
                              SysConfigPort sysConfigPort,
                              ObjectProvider<StringRedisTemplate> redisProvider,
-                             ObjectProvider<WorkflowCompiler> workflowCompilerProvider,
+                             ObjectProvider<GraphRuntime> graphRuntimeProvider,
                              @Lazy AgentRunService agentRunService) {
         this.runMapper = runMapper;
         this.sysConfigPort = sysConfigPort;
         this.redisProvider = redisProvider;
-        this.workflowCompilerProvider = workflowCompilerProvider;
+        this.graphRuntimeProvider = graphRuntimeProvider;
         this.agentRunService = agentRunService;
     }
 
@@ -86,7 +88,7 @@ public class AgentQuotaService {
      * 启动前占用配额；超限抛 {@link CommonErrorCode#TOO_MANY_REQUESTS}。
      *
      * @param loginUserId 登录用户 AiUser.id，可为 null（跳过账号层）
-     * @param agent       智能体配置，不可为 null
+     * @param agent       Agent 配置，不可为 null
      */
     public void acquire(Long loginUserId, AiAgent agent) {
         if (agent == null) {
@@ -113,7 +115,7 @@ public class AgentQuotaService {
      * 占用配额；超限时写入 FAILED 拒绝运行并原样抛出。
      *
      * @param loginUserId    登录用户 id，可为 null
-     * @param agent          智能体
+     * @param agent          Agent
      * @param mode           编排模式
      * @param conversationId 会话 ID
      * @param userMessage    用户原话
@@ -137,7 +139,7 @@ public class AgentQuotaService {
      * 运行结束释放并发占用。
      *
      * @param loginUserId 登录用户 id，可为 null
-     * @param agentCode   智能体编码
+     * @param agentCode   Agent 编码
      */
     public void release(Long loginUserId, String agentCode) {
         String code = AgentQuotaKeys.normalizeAgentCode(agentCode);
@@ -156,7 +158,7 @@ public class AgentQuotaService {
      * 运行结束后累计日 token（用于后续日限额校验）。
      *
      * @param loginUserId 登录用户 id，可为 null
-     * @param agentCode   智能体编码
+     * @param agentCode   Agent 编码
      * @param tokens      本次消耗 token；≤0 忽略
      */
     public void recordTokens(Long loginUserId, String agentCode, int tokens) {
@@ -183,60 +185,69 @@ public class AgentQuotaService {
         }
         long dbRunning = countRunning(null, null);
         int inFlight = peekRunningExecutions();
-        long current = Math.max(dbRunning, inFlight);
+        // 进程内/Redis 计数器也要算进来：多实例下 DB RUNNING 有落库延迟，只看 DB 会放行超额请求
+        int held = peekConcurrency(AgentQuotaKeys.GLOBAL_CONCURRENCY);
+        long current = Math.max(dbRunning, Math.max(inFlight, held));
         if (current >= limit) {
-            log.warn("全站并发超限: current={}, limit={}, dbRunning={}, inFlight={}",
-                    current, limit, dbRunning, inFlight);
+            log.warn("全站并发超限: current={}, limit={}, dbRunning={}, inFlight={}, held={}",
+                    current, limit, dbRunning, inFlight, held);
             throwQuota("全站并发超限");
         }
     }
 
     /**
-     * 读取 WorkflowCompiler 进程内在跑数；失败返回 0。
+     * 读取运行期在跑数；失败返回 0。
+     * <p>
+     * 只依赖 {@link GraphRuntime} 窄接口，不引用 WorkflowCompiler 实现类，
+     * 以便 runtime 内部重构时不影响配额模块。
+     * </p>
      *
      * @return 在跑数
      */
     private int peekRunningExecutions() {
-        WorkflowCompiler compiler = workflowCompilerProvider.getIfAvailable();
-        if (compiler == null) {
+        GraphRuntime runtime = graphRuntimeProvider.getIfAvailable();
+        if (runtime == null) {
             return 0;
         }
         try {
-            return compiler.getRunningExecutionCount();
+            return runtime.getRunningExecutionCount();
         } catch (Exception e) {
-            log.warn("读取 WorkflowCompiler 在跑数失败: {}", e.getMessage());
+            log.warn("读取图执行在跑数失败: {}", e.getMessage());
             return 0;
         }
     }
 
-    /** 校验智能体层 QPS / 并发 / 日 token。 */
+    /** 校验 Agent 层 QPS / 并发 / 日 token。 */
     private void checkAgentQuota(AiAgent agent, String code) {
         if (code == null) {
             return;
         }
         if (agent.getQuotaQps() != null && agent.getQuotaQps() > 0) {
             if (peekQps(AgentQuotaKeys.agentQps(code)) >= agent.getQuotaQps()) {
-                log.warn("智能体 QPS 超限: agentCode={}, limit={}", code, agent.getQuotaQps());
-                throwQuota("智能体 QPS 超限: " + code);
+                log.warn("Agent QPS 超限: agentCode={}, limit={}", code, agent.getQuotaQps());
+                throwQuota("Agent QPS 超限: " + code);
             }
         }
         if (agent.getQuotaConcurrency() != null && agent.getQuotaConcurrency() > 0) {
             long running = countRunning(null, code);
             int held = peekConcurrency(AgentQuotaKeys.agentConcurrency(code));
             if (Math.max(running, held) >= agent.getQuotaConcurrency()) {
-                log.warn("智能体并发超限: agentCode={}, limit={}, running={}, held={}",
+                log.warn("Agent 并发超限: agentCode={}, limit={}, running={}, held={}",
                         code, agent.getQuotaConcurrency(), running, held);
-                throwQuota("智能体并发超限: " + code);
+                throwQuota("Agent 并发超限: " + code);
             }
         }
         if (agent.getQuotaDailyTokens() != null && agent.getQuotaDailyTokens() > 0) {
             String date = LocalDate.now().toString();
-            long used = peekDailyTokens(AgentQuotaKeys.agentDailyTokens(code, date))
-                    + sumTokensToday(code, null);
+            String tokenKey = AgentQuotaKeys.agentDailyTokens(code, date);
+            long cached = peekDailyTokens(tokenKey);
+            // 计数器有值就以它为准；为 0 才回落到今日已落库合计。
+            // 两个来源相加会重复计算（recordTokens 写计数器的同时，运行行的 total_tokens 也落了库）。
+            long used = cached > 0 ? cached : sumTokensToday(code, null);
             if (used >= agent.getQuotaDailyTokens()) {
-                log.warn("智能体日 token 超限: agentCode={}, used={}, limit={}",
+                log.warn("Agent 日 token 超限: agentCode={}, used={}, limit={}",
                         code, used, agent.getQuotaDailyTokens());
-                throwQuota("智能体日 token 超限: " + code);
+                throwQuota("Agent 日 token 超限: " + code);
             }
         }
     }
@@ -264,8 +275,9 @@ public class AgentQuotaService {
         int daily = sysConfigPort.getInt(SysConfigKeys.QUOTA_ACCOUNT_DAILY_TOKENS, 0);
         if (daily > 0) {
             String date = LocalDate.now().toString();
-            long used = peekDailyTokens(AgentQuotaKeys.accountDailyTokens(loginUserId, date))
-                    + sumTokensToday(null, loginUserId);
+            String tokenKey = AgentQuotaKeys.accountDailyTokens(loginUserId, date);
+            long cached = peekDailyTokens(tokenKey);
+            long used = cached > 0 ? cached : sumTokensToday(null, loginUserId);
             if (used >= daily) {
                 log.warn("账号日 token 超限: userId={}, used={}, limit={}", loginUserId, used, daily);
                 throwQuota("账号日 token 超限");
@@ -273,7 +285,7 @@ public class AgentQuotaService {
         }
     }
 
-    /** 占用全局 / 智能体 / 账号并发槽。 */
+    /** 占用全局 / Agent / 账号并发槽。 */
     private void holdConcurrency(String agentCode, Long loginUserId) {
         incConcurrency(AgentQuotaKeys.GLOBAL_CONCURRENCY);
         String agentConc = AgentQuotaKeys.agentConcurrency(agentCode);
@@ -289,7 +301,7 @@ public class AgentQuotaService {
      * 统计 RUNNING 数量。
      *
      * @param creatorId 创建人过滤，可为 null
-     * @param agentCode 智能体编码过滤，可为 null
+     * @param agentCode Agent 编码过滤，可为 null
      */
     private long countRunning(Long creatorId, String agentCode) {
         LambdaQueryWrapper<AgentWorkflowRun> q = new LambdaQueryWrapper<AgentWorkflowRun>()
@@ -302,22 +314,38 @@ public class AgentQuotaService {
 
     /**
      * 今日已落库 token 合计（作为 Redis 未命中时的兜底）。
+     * <p>
+     * 用库侧 {@code SUM} 聚合：配额校验在每次请求的入口都会跑，若把当天全部运行行拉回 JVM 再求和，
+     * 调用量一上来就是稳定的性能与内存负担。这里只取回一行聚合结果。
+     * </p>
      *
-     * @param agentCode 智能体编码，可为 null
+     * @param agentCode Agent 编码，可为 null
      * @param creatorId 创建人，可为 null
+     * @return 今日 token 合计；无数据时 0
      */
     private long sumTokensToday(String agentCode, Long creatorId) {
         LocalDateTime from = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
-        LambdaQueryWrapper<AgentWorkflowRun> q = new LambdaQueryWrapper<AgentWorkflowRun>()
-                .ge(AgentWorkflowRun::getCreateTime, from)
-                .eq(StringUtils.hasText(agentCode), AgentWorkflowRun::getAgentCode, agentCode)
-                .eq(creatorId != null, AgentWorkflowRun::getCreatorId, creatorId)
-                .isNotNull(AgentWorkflowRun::getTotalTokens);
-        return runMapper.selectList(q).stream()
-                .map(AgentWorkflowRun::getTotalTokens)
-                .filter(t -> t != null && t > 0)
-                .mapToLong(Integer::longValue)
-                .sum();
+        QueryWrapper<AgentWorkflowRun> q = new QueryWrapper<>();
+        q.select("COALESCE(SUM(total_tokens), 0) AS total")
+                .ge("create_time", from);
+        if (StringUtils.hasText(agentCode)) {
+            q.eq("agent_code", agentCode);
+        }
+        if (creatorId != null) {
+            q.eq("creator_id", creatorId);
+        }
+        List<Map<String, Object>> rows = runMapper.selectMaps(q);
+        if (rows == null || rows.isEmpty() || rows.get(0) == null) {
+            return 0L;
+        }
+        // 结果只有一列；按"取第一个数值"读取，避免依赖驱动对别名的字母大小写处理
+        for (Object v : rows.get(0).values()) {
+            if (v instanceof Number n) {
+                return n.longValue();
+            }
+        }
+        log.warn("sumTokensToday 未取到数值列: agentCode={}, creatorId={}, row={}", agentCode, creatorId, rows.get(0));
+        return 0L;
     }
 
     /** 抛出配额超限业务异常。 */
@@ -509,5 +537,7 @@ public class AgentQuotaService {
                 tokIt.remove();
             }
         }
+        // 并发计数没有过期时间；归零的条目留着会随 key 数量无限增长
+        memoryConcurrency.entrySet().removeIf(e -> e.getValue().get() <= 0);
     }
 }

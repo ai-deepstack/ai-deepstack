@@ -4,19 +4,23 @@
 
 ```text
 org.deepstack.ai
-├── kernel.* / infra.* / aimodel.* / tool.* / knowledge.* / card.*
+├── kernel.* / storage.* / infra.* / aimodel.* / tool.* / knowledge.* / card.*
 ├── settings.*                # settings-api：SysConfigPort + SysConfigKeys
 ├── graph.*                   # api（SPI）+ age（可选实现）
 ├── memory.*                  # api + pg
 ├── agent.* / chat.*          # 编排（注入 toolCodes / 绑定允许集）
-├── runtime.*                 # GraphRuntime / RunContext / spi.Port / Compiler / checkpoint
-│   ├── spi.*                 # Model/Tool/Knowledge/Card/Hitl Port
-│   ├── spi.tool.*            # ToolDescriptorIndex / ToolDisclosureSession
-│   └── engine.*              # GraphSpec / WorkflowState / 全部节点
+├── engine.api.*              # runtime-api：GraphSpec / WorkflowState / WorkflowStreamEvent 等值类型
+├── runtime.spi.*             # runtime-api：Model/Tool/Knowledge/Card/Hitl Port、GraphRuntime、工具披露 SPI
+├── runtime.*                 # runtime：Compiler / Executor / NodeActionFactory / RunContext / checkpoint
+│   ├── engine.node / engine.support / engine.validate   # 节点实现与表达式求值（在 runtime 模块内）
+│   └── observability.*       # 节点耗时记录
 └── app.*                     # 参考应用（LoginInterceptor、sys_config 实现等）
-    ├── settings.*            # SysConfigPortImpl + SettingsController
-    └── spi.*                 # 仅 App 专属（如 AppUserProfileLoader）
+    └── settings.*            # SysConfigPortImpl + SettingsController
 ```
+
+契约与实现分在两个模块：`ai-deepstack-runtime-api` 只放端口与值类型，`ai-deepstack-runtime` 放编译器、执行器与节点。
+这样 `infra` / `tool` / `knowledge` 这些只实现端口的能力模块，编译期不必依赖图执行引擎、WebFlux 与 Actuator。
+（注意 `kernel` 本身带了 MyBatis-Plus / Redis / PostgreSQL，任一模块只要依赖 kernel 就会带上它们。）
 
 各业务模块统一分层：`web` · `service`(+`impl`) · `mapper` · `model.entity` · `model.dto` ·（可选）`spi` / `config`。
 
@@ -33,9 +37,9 @@ org.deepstack.ai
 | `MemoryPort` | `memory-pg` |
 
 - 业务键：`modelCode` / `toolCode` / `baseCode`；`CardPort.afterEmitted(EmittedCard)`
-- **能力模块实现 Port**；`runtime` 提供 `@ConditionalOnMissingBean` 空实现
-- 编排 / HITL / 试跑依赖 **`GraphRuntime`**，不直接依赖 `WorkflowCompiler` 细节
-- 请求态在 **`RunContext`**；`AgentNodeContext` 仅聚合 Port
+- 能力模块实现 Port；`runtime` 提供 `@ConditionalOnMissingBean` 占位实现——除可选能力（`MemoryPort`/`HitlPort` 用 `available()` 标记不可用）外，占位实现一律「调用即失败」，避免能力没接上却被当成空结果
+- 编排 / HITL / 试跑依赖 `GraphRuntime`（含在跑数与编译缓存数），不直接依赖 `WorkflowCompiler` 实现类
+- 请求态在 `RunContext`；`AgentNodeContext` 仅聚合 Port
 
 ## 工具分层
 
@@ -45,9 +49,8 @@ ToolPort（机械 resolve）
 ToolPortAdapter → ToolCatalog(Db) + CatalogToolCallbackResolver(LOCAL Bean | MCP Bridge)
 ```
 
-- **禁止**再使用已退役的 `ToolRegistry` 概念
-- Agent ↔ Tool = **`ai_agent_tool` 绑定允许集**；Catalog 全量 ≠ 某 Agent 可用集
-- **MCP**（包 `tool.mcp`，无独立模块）：连接表 `ai_mcp_connection`；同步进 `ai_tool`（`source_type=MCP`）；Agent 绑工具不绑连接；密钥不回传列表 API；总开关 / 前缀走 sys_config（`mcp.enabled`、`mcp.tool-code-prefix`）
+- Agent ↔ Tool 是 `ai_agent_tool` 绑定允许集；Catalog 全量不等于某 Agent 可用集
+- MCP（包 `tool.mcp`，无独立模块）：连接表 `ai_mcp_connection`；同步进 `ai_tool`（`source_type=MCP`）；Agent 绑工具不绑连接；密钥不回传列表 API；总开关 / 前缀走 sys_config（`mcp.enabled`、`mcp.tool-code-prefix`）
 
 ## 工具披露 SPI
 

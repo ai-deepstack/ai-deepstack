@@ -11,7 +11,7 @@ import org.deepstack.ai.agent.model.entity.AiAgent;
 import org.deepstack.ai.agent.service.AiAgentService;
 import org.deepstack.ai.kernel.enums.agent.AgentRunErrorCode;
 import org.deepstack.ai.kernel.enums.agent.GraphRunStatusEnum;
-import org.deepstack.ai.runtime.GraphRuntime;
+import org.deepstack.ai.runtime.spi.GraphRuntime;
 import org.deepstack.ai.settings.SysConfigKeys;
 import org.deepstack.ai.settings.SysConfigPort;
 import org.springframework.beans.factory.ObjectProvider;
@@ -89,7 +89,7 @@ public class HitlTimeoutTask {
     }
 
     /**
-     * 解析超时分钟：智能体配置优先，否则全局。
+     * 解析超时分钟：Agent 配置优先，否则全局。
      *
      * @param run           运行行
      * @param globalMinutes 全局默认

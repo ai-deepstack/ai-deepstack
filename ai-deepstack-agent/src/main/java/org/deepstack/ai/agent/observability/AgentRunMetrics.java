@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 智能体运行 Micrometer 指标（O5）。
+ * Agent 运行 Micrometer 指标（O5）。
  * <p>
  * 指标名见 {@link AgentRunMetricNames}：run.count / duration / error、tokens、hitl.wait。
  * </p>
@@ -27,7 +27,7 @@ public class AgentRunMetrics {
     /**
      * 记录一次运行结束：计数、耗时；有业务错误码时记 error；有 token 时累加。
      *
-     * @param agentCode   智能体编码
+     * @param agentCode   Agent 编码
      * @param mode        编排模式名（如 CHAT / GRAPH）
      * @param status      状态名（如 SUCCESS / FAILED）
      * @param errorCode   错误码字符串；NONE 或空不记 error 计数
@@ -74,7 +74,7 @@ public class AgentRunMetrics {
     /**
      * 记录 HITL 等待时长。
      *
-     * @param agentCode 智能体编码
+     * @param agentCode Agent 编码
      * @param waitMs    等待毫秒
      */
     public void recordHitlWait(String agentCode, long waitMs) {

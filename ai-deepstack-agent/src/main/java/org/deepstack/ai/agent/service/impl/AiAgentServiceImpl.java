@@ -28,7 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * {@link AiAgentService} 实现：智能体 CRUD、启停、知识库绑定。
+ * {@link AiAgentService} 实现：Agent CRUD、启停、知识库绑定。
  */
 @Slf4j
 @Service
@@ -50,7 +50,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
                         .eq(AiAgent::getEnabled, YesNo.YES.getCode())
         );
         if (agent == null) {
-            log.warn("启用智能体未找到: agentCode={}", agentCode);
+            log.warn("启用 Agent 未找到: agentCode={}", agentCode);
         }
         return agent;
     }
@@ -207,7 +207,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
     public void update(AiAgentUpdateRequest req) {
         AiAgent entity = baseMapper.selectById(req.getId());
         if (entity == null) {
-            throw new IllegalArgumentException("智能体不存在: id=" + req.getId());
+            throw new IllegalArgumentException("Agent 不存在: id=" + req.getId());
         }
         if (req.getAgentName() != null) {
             String name = requireUniqueAgentName(req.getAgentName(), req.getId());
@@ -284,7 +284,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
     }
 
     /**
-     * 复制智能体配置壳（不含 id / 绑定）；编码服务端生成，默认停用、清空发布态。
+     * 复制 Agent 配置壳（不含 id / 绑定）；编码服务端生成，默认停用、清空发布态。
      *
      * @param source    源实体
      * @param agentName 已校验唯一的新名称
@@ -325,7 +325,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
     }
 
     /**
-     * 复制知识库与工具绑定到目标智能体。
+     * 复制知识库与工具绑定到目标 Agent。
      *
      * @param fromAgentId 源
      * @param toAgentId   目标
@@ -352,7 +352,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
     }
 
     /**
-     * 校验智能体名称全局唯一（trim 后精确匹配）。
+     * 校验 Agent 名称全局唯一（trim 后精确匹配）。
      *
      * @param agentName 名称
      * @param excludeId 更新时排除自身；新建传 null
@@ -360,7 +360,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
      */
     private String requireUniqueAgentName(String agentName, Long excludeId) {
         if (!StringUtils.hasText(agentName)) {
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(), "智能体名称不能为空");
+            throw new BusinessException(CommonErrorCode.BAD_REQUEST.getCode(), "Agent 名称不能为空");
         }
         String name = agentName.trim();
         LambdaQueryWrapper<AiAgent> wrapper = new LambdaQueryWrapper<AiAgent>()
@@ -370,28 +370,28 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         }
         Long count = baseMapper.selectCount(wrapper);
         if (count != null && count > 0) {
-            throw new BusinessException(CommonErrorCode.CONFLICT.getCode(), "智能体名称已存在");
+            throw new BusinessException(CommonErrorCode.CONFLICT.getCode(), "Agent 名称已存在");
         }
         return name;
     }
 
     /**
-     * 按主键加载智能体，不存在则抛异常。
+     * 按主键加载 Agent，不存在则抛异常。
      *
-     * @param id 智能体主键
+     * @param id Agent 主键
      * @return 实体
      * @throws IllegalArgumentException 不存在
      */
     private AiAgent requireAgent(Long id) {
         AiAgent entity = baseMapper.selectById(id);
         if (entity == null) {
-            throw new IllegalArgumentException("智能体不存在: id=" + id);
+            throw new IllegalArgumentException("Agent 不存在: id=" + id);
         }
         return entity;
     }
 
     /**
-     * 生成唯一智能体编码：DS + yyyyMMdd + 当日序号（3 位起）。
+     * 生成唯一 Agent 编码：DS + yyyyMMdd + 当日序号（3 位起）。
      * 例：DS20260914001
      *
      * @return 唯一 agentCode
@@ -419,7 +419,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
                 return code;
             }
         }
-        throw new IllegalStateException("无法生成唯一的智能体编码，请重试");
+        throw new IllegalStateException("无法生成唯一的 Agent 编码，请重试");
     }
 
     /**

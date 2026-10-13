@@ -166,20 +166,35 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { get, getToken, pageList, post, put } from '../api/http'
 import PropCheckbox from '../components/PropCheckbox.vue'
 import PropSelect from '../components/PropSelect.vue'
+import { usePageList } from '../composables/usePageList'
 import { EnabledStatus, ModelType } from '../constants/enums'
 
 /** DocGraphStatusEnum: WRITTEN=2, FAILED=3 */
 const GRAPH_WRITTEN = 2
 const GRAPH_FAILED = 3
 
-const list = ref([])
 const embeddingModels = ref([])
 const chatModels = ref([])
 const docs = ref([])
 const selected = ref(null)
-const error = ref('')
 const saving = ref(false)
 const drawer = ref(false)
+
+// 库列表分页与过期响应丢弃交给 usePageList；error 由它持有，供文档操作共用
+const { list, error, load } = usePageList({
+  pageSize: 100,
+  fetcher: ({ pageNum, pageSize }) =>
+    Promise.all([
+      get('/api/kb/page', { pageNum, pageSize }),
+      get('/api/models/options', { modelType: ModelType.EMBEDDING }),
+      get('/api/models/options', { modelType: ModelType.CHAT })
+    ]),
+  onData: ([k, emb, chat]) => {
+    list.value = pageList(k)
+    embeddingModels.value = emb.data || []
+    chatModels.value = chat.data || []
+  }
+})
 const form = reactive({
   id: null,
   baseCode: '',
@@ -196,22 +211,6 @@ const chatOptions = computed(() => chatModels.value)
 
 function canRegraph(d) {
   return d.graphStatus === GRAPH_WRITTEN || d.graphStatus === GRAPH_FAILED
-}
-
-async function load() {
-  error.value = ''
-  try {
-    const [k, emb, chat] = await Promise.all([
-      get('/api/kb/page', { pageNum: 1, pageSize: 100 }),
-      get('/api/models/options', { modelType: ModelType.EMBEDDING }),
-      get('/api/models/options', { modelType: ModelType.CHAT })
-    ])
-    list.value = pageList(k)
-    embeddingModels.value = emb.data || []
-    chatModels.value = chat.data || []
-  } catch (e) {
-    error.value = e.message
-  }
 }
 
 async function select(item) {

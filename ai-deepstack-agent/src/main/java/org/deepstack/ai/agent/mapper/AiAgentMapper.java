@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 /**
- * 智能体配置 Mapper
+ * Agent 配置 Mapper
  *
  */
 @Mapper

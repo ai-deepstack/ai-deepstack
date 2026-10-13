@@ -9,7 +9,11 @@ import org.deepstack.ai.knowledge.model.dto.request.KnowledgeBasePageRequest;
 import org.deepstack.ai.knowledge.model.dto.request.KnowledgeBaseUpdateRequest;
 import org.deepstack.ai.aimodel.model.entity.AiModel;
 import org.deepstack.ai.knowledge.model.entity.KnowledgeBase;
+import org.deepstack.ai.knowledge.model.entity.KnowledgeChunk;
+import org.deepstack.ai.knowledge.model.entity.KnowledgeDocument;
 import org.deepstack.ai.knowledge.mapper.KnowledgeBaseMapper;
+import org.deepstack.ai.knowledge.mapper.KnowledgeChunkMapper;
+import org.deepstack.ai.knowledge.mapper.KnowledgeDocumentMapper;
 import org.deepstack.ai.aimodel.service.AiModelService;
 import org.deepstack.ai.knowledge.service.KnowledgeBaseService;
 import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
@@ -22,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -38,6 +43,8 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
 
     private final AiModelService aiModelService;
     private final ObjectProvider<GraphStore> graphStoreProvider;
+    private final KnowledgeDocumentMapper knowledgeDocumentMapper;
+    private final KnowledgeChunkMapper knowledgeChunkMapper;
 
     // ===== 运行时查询 =====
 
@@ -251,20 +258,36 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     }
 
     /**
-     * 删除知识库，并尽力清理 AGE scope（失败只打日志，不阻断删库）。
+     * 删除知识库，并级联清理其文档 / 切片，最后尽力清理 AGE scope（图失败只打日志，不阻断删库）。
      *
      * @param id 知识库 ID
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id) {
         log.info("deleteById: id={}", id);
         KnowledgeBase kb = baseMapper.selectById(id);
         baseMapper.deleteById(id);
+        // 级联删文档与切片：只删库行会让向量表随删库无限增长
+        cascadeDeleteDocuments(id);
         if (kb != null && StringUtils.hasText(kb.getBaseCode())) {
             clearGraphScope(kb.getBaseCode());
         }
         log.info("Deleted knowledge base: id={}, baseCode={}",
                 id, kb != null ? kb.getBaseCode() : null);
+    }
+
+    /**
+     * 级联逻辑删除该知识库下的切片与文档。
+     *
+     * @param knowledgeBaseId 知识库 ID
+     */
+    private void cascadeDeleteDocuments(Long knowledgeBaseId) {
+        int chunks = knowledgeChunkMapper.delete(new LambdaQueryWrapper<KnowledgeChunk>()
+                .eq(KnowledgeChunk::getKnowledgeBaseId, knowledgeBaseId));
+        int docs = knowledgeDocumentMapper.delete(new LambdaQueryWrapper<KnowledgeDocument>()
+                .eq(KnowledgeDocument::getKnowledgeBaseId, knowledgeBaseId));
+        log.info("级联删除知识库文档: kbId={}, documents={}, chunks={}", knowledgeBaseId, docs, chunks);
     }
 
     /**

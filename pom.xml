@@ -11,6 +11,7 @@
   <description>Spring AI × LangGraph4j agent platform</description>
   <modules>
     <module>ai-deepstack-kernel</module>
+    <module>ai-deepstack-storage</module>
     <module>ai-deepstack-settings-api</module>
     <module>ai-deepstack-aimodel</module>
     <module>ai-deepstack-infra</module>
@@ -21,6 +22,7 @@
     <module>ai-deepstack-memory</module>
     <module>ai-deepstack-card</module>
     <module>ai-deepstack-chat</module>
+    <module>ai-deepstack-runtime-api</module>
     <module>ai-deepstack-runtime</module>
     <module>ai-deepstack-starter</module>
     <module>ai-deepstack-web</module>
@@ -80,6 +82,11 @@
       <dependency>
         <groupId>org.deepstack.ai</groupId>
         <artifactId>ai-deepstack-kernel</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.deepstack.ai</groupId>
+        <artifactId>ai-deepstack-storage</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -149,6 +156,11 @@
       </dependency>
       <dependency>
         <groupId>org.deepstack.ai</groupId>
+        <artifactId>ai-deepstack-runtime-api</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.deepstack.ai</groupId>
         <artifactId>ai-deepstack-runtime</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -164,6 +176,19 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+  <dependencies>
+    <!-- 单元测试：版本由 spring-boot-dependencies BOM 管理 -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
   <build>
     <pluginManagement>
       <plugins>
@@ -176,6 +201,12 @@
             <encoding>${project.build.sourceEncoding}</encoding>
             <parameters>true</parameters>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <!-- 2.12.4（Maven 默认）不识别 JUnit 5 平台 -->
+          <version>3.2.5</version>
         </plugin>
         <plugin>
           <groupId>org.springframework.boot</groupId>
