@@ -64,6 +64,12 @@
           <li class="login-stat"><strong>流式输出</strong><span>边生成边看结果</span></li>
           <li class="login-stat"><strong>模型 · 工具 · 知识库</strong><span>统一配置入口</span></li>
         </ul>
+
+        <!-- 页脚：开源项目的许可与版权，链到仓库 LICENSE -->
+        <p class="login-meta">
+          <a :href="`${GITHUB_URL}/blob/master/LICENSE`" target="_blank" rel="noopener">Apache-2.0</a>
+          <span>· © 2026 AI DeepStack</span>
+        </p>
       </section>
 
       <section class="login-panel">
@@ -149,6 +155,19 @@ async function onSubmit() {
 }
 .login-submit {
   width: 100%;
+}
+.login-meta {
+  /* margin-top:auto 推到左栏底部 */
+  margin: auto 0 0;
+  padding-top: 2.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.login-meta a {
+  color: var(--ink-soft);
+}
+.login-meta a:hover {
+  color: var(--cyan-bright);
 }
 .login-links {
   /* 顶栏右侧，与品牌行同处网格第一行 */
