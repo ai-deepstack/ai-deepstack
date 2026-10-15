@@ -554,9 +554,20 @@ CREATE INDEX IF NOT EXISTS idx_ai_user_enabled ON deepstack.ai_user (enabled) WH
 -- ====================================================================
 
 COMMENT ON TABLE deepstack.ai_intent IS '租户级意图字典（多 Agent 复用）';
+COMMENT ON COLUMN deepstack.ai_intent.id IS '主键';
 COMMENT ON COLUMN deepstack.ai_intent.tenant_id IS '租户 ID；当前无租户体系时固定为 0';
 COMMENT ON COLUMN deepstack.ai_intent.intent_code IS '意图编码（路由/LLM 返回值）';
 COMMENT ON COLUMN deepstack.ai_intent.intent_name IS '意图显示名';
+COMMENT ON COLUMN deepstack.ai_intent.description IS '意图说明';
+COMMENT ON COLUMN deepstack.ai_intent.sort_order IS '排序，越小越靠前';
+COMMENT ON COLUMN deepstack.ai_intent.enabled IS '是否启用：1启用 0停用';
+COMMENT ON COLUMN deepstack.ai_intent.is_del IS '逻辑删除：0正常 1已删（默认 0；业务勿赋值，由框架逻辑删除维护）';
+COMMENT ON COLUMN deepstack.ai_intent.creator_id IS '创建人 ID';
+COMMENT ON COLUMN deepstack.ai_intent.creator IS '创建人名称';
+COMMENT ON COLUMN deepstack.ai_intent.modifier_id IS '修改人 ID';
+COMMENT ON COLUMN deepstack.ai_intent.modifier IS '修改人名称';
+COMMENT ON COLUMN deepstack.ai_intent.create_time IS '创建时间（默认当前时间；业务勿赋值）';
+COMMENT ON COLUMN deepstack.ai_intent.update_time IS '更新时间（默认当前时间，行变更时由触发器自动刷新；业务勿赋值）';
 
 COMMENT ON TABLE deepstack.ai_model IS 'AI 模型配置（CHAT / EMBEDDING）';
 COMMENT ON COLUMN deepstack.ai_model.id IS '主键';
@@ -883,50 +894,47 @@ COMMENT ON COLUMN deepstack.ai_long_term_memory.is_del IS '逻辑删除：0正�
 COMMENT ON COLUMN deepstack.ai_long_term_memory.create_time IS '创建时间';
 COMMENT ON COLUMN deepstack.ai_long_term_memory.update_time IS '更新时间';
 
-COMMENT ON TABLE deepstack.ai_agent_graph_version IS 'Agent 已发布图版本历史';
-COMMENT ON TABLE deepstack.agent_alert_event IS 'Agent 告警触发记录';
-
 -- ####################################################################
 -- Seeds (idempotent)
 -- ####################################################################
 
 -- 8 agent node types（界面文案中文；type_code 保持英文稳定）
-INSERT INTO deepstack.agent_node_type (type_code, label, icon, category, default_props, property_fields, max_in_ports, max_out_ports, sort_order, enabled) VALUES
-('start-node', '开始', 'el-icon-video-play', 'basic',
+INSERT INTO deepstack.agent_node_type (id, type_code, label, icon, category, default_props, property_fields, max_in_ports, max_out_ports, sort_order, enabled) VALUES
+(1900000000000000101, 'start-node', '开始', 'el-icon-video-play', 'basic',
  '{"outputVar":"user_message"}', '[]', 0, 1, 1, 1),
-('intent-node', '意图分类', 'el-icon-cpu', 'ai',
+(1900000000000000102, 'intent-node', '意图分类', 'el-icon-cpu', 'ai',
  '{"categories":[],"prompt":"请判断用户意图，只返回类别名称","outputVar":"intent"}',
  '[{"key":"modelCode","label":"对话模型","widget":"select","required":false,"optionsSource":"CHAT_MODEL","placeholder":"选择对话模型"},{"key":"categories","label":"意图类别","widget":"select","required":true,"optionsSource":"INTENT","placeholder":"从意图字典多选"},{"key":"prompt","label":"分类提示词","widget":"textarea","required":false,"defaultValue":"请判断用户意图，只返回类别名称","placeholder":"自定义分类提示词"}]',
  -1, -1, 2, 1),
-('llm-node', '大模型', 'el-icon-chat-dot-round', 'ai',
+(1900000000000000103, 'llm-node', '大模型', 'el-icon-chat-dot-round', 'ai',
  '{"systemPrompt":"你是一个智能助手","temperature":0.7,"outputVar":"response"}',
  '[{"key":"modelCode","label":"对话模型","widget":"select","required":false,"optionsSource":"CHAT_MODEL","placeholder":"空=用 Agent 默认模型"},{"key":"systemPrompt","label":"系统提示词","widget":"textarea","required":true,"defaultValue":"你是一个智能助手","placeholder":"系统提示词"},{"key":"temperature","label":"温度","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~2.0"},{"key":"inputVars","label":"输入变量","widget":"json","required":false,"placeholder":"变量名数组"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"response","placeholder":"结果写入的变量名"}]',
  -1, 1, 3, 1),
-('rag-node', '知识检索', 'el-icon-reading', 'ai',
+(1900000000000000104, 'rag-node', '知识检索', 'el-icon-reading', 'ai',
  '{"topK":5,"similarityThreshold":0.7,"outputVar":"rag_context"}',
  '[{"key":"knowledgeBaseCodes","label":"知识库","widget":"select","required":true,"optionsSource":"KB","placeholder":"选择知识库"},{"key":"topK","label":"召回条数","widget":"number","required":false,"defaultValue":5,"placeholder":"1~50"},{"key":"similarityThreshold","label":"相似度阈值","widget":"number","required":false,"defaultValue":0.7,"placeholder":"0.0~1.0"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"rag_context","placeholder":"检索结果变量名"}]',
  -1, 1, 4, 1),
-('tool-node', '工具调用', 'el-icon-s-tools', 'tool',
+(1900000000000000105, 'tool-node', '工具调用', 'el-icon-s-tools', 'tool',
  '{"outputVar":"tool_result"}',
  '[{"key":"toolCode","label":"选择工具","widget":"select","required":true,"optionsSource":"TOOL","placeholder":"选择要调用的工具"},{"key":"paramMappings","label":"参数映射","widget":"json","required":false,"placeholder":"{参数名: 变量名或字面量}"},{"key":"outputVar","label":"输出变量","widget":"input","required":true,"defaultValue":"tool_result","placeholder":"工具结果变量名"}]',
  -1, 1, 5, 1),
-('condition-node', '条件分支', 'el-icon-sort', 'flow',
+(1900000000000000106, 'condition-node', '条件分支', 'el-icon-sort', 'flow',
  '{"conditionExpression":"","outputVar":"condition_result"}',
  '[{"key":"conditionExpression","label":"节点条件（求值）","widget":"input","required":true,"placeholder":"例如：rag_context != null，结果写入输出变量"},{"key":"outputVar","label":"输出变量","widget":"input","required":false,"defaultValue":"condition_result","placeholder":"默认 condition_result；分支路由写在出边上"}]',
  -1, -1, 6, 1),
-('memory-node', '长期记忆', 'el-icon-collection', 'ai',
+(1900000000000000107, 'memory-node', '长期记忆', 'el-icon-collection', 'ai',
  '{"mode":"read","enableGraph":false,"limit":10}',
  '[{"key":"mode","label":"模式","widget":"select","required":true,"options":[{"value":"read","label":"读取记忆"},{"value":"write","label":"写入记忆"}],"defaultValue":"read"},{"key":"enableGraph","label":"启用图谱","widget":"switch","required":false,"defaultValue":false},{"key":"limit","label":"返回条数","widget":"number","required":false,"defaultValue":10,"placeholder":"读模式返回条数"}]',
  -1, 1, 7, 1),
-('card-gate-node', '人工确认', 'el-icon-user', 'flow',
+(1900000000000000108, 'card-gate-node', '人工确认', 'el-icon-user', 'flow',
  '{"requirePendingCards":true}',
  '[{"key":"requirePendingCards","label":"仅有待确认卡片时挂起","widget":"switch","required":false,"defaultValue":true}]',
  -1, 1, 8, 1),
-('assign-node', '变量赋值', 'el-icon-edit-outline', 'flow',
+(1900000000000000109, 'assign-node', '变量赋值', 'el-icon-edit-outline', 'flow',
  '{"variableName":"temp_var","expression":""}',
  '[{"key":"variableName","label":"变量名","widget":"input","required":true,"placeholder":"要赋值的变量名"},{"key":"expression","label":"表达式","widget":"input","required":true,"placeholder":"字面量或 ${变量名}"}]',
  -1, 1, 9, 1),
-('end-node', '结束', 'el-icon-circle-close', 'basic',
+(1900000000000000110, 'end-node', '结束', 'el-icon-circle-close', 'basic',
  '{"outputVar":"response"}',
  '[{"key":"outputVar","label":"输出变量","widget":"input","required":false,"defaultValue":"response","placeholder":"最终输出变量名"}]',
  -1, 0, 10, 1)
@@ -961,9 +969,9 @@ UPDATE deepstack.agent_node_type SET
   property_fields = '[{"key":"conditionExpression","label":"节点条件（求值）","widget":"input","required":true,"placeholder":"例如：rag_context != null，结果写入输出变量"},{"key":"outputVar","label":"输出变量","widget":"input","required":false,"defaultValue":"condition_result","placeholder":"默认 condition_result；分支路由写在出边上"}]',
   update_time = NOW()
 WHERE type_code = 'condition-node';
-INSERT INTO deepstack.agent_node_type (type_code, label, icon, category, default_props, property_fields, max_in_ports, max_out_ports, sort_order, enabled)
+INSERT INTO deepstack.agent_node_type (id, type_code, label, icon, category, default_props, property_fields, max_in_ports, max_out_ports, sort_order, enabled)
 SELECT
-  'memory-node', '长期记忆', 'el-icon-collection', 'ai',
+  1900000000000000107, 'memory-node', '长期记忆', 'el-icon-collection', 'ai',
   '{"mode":"read","enableGraph":false,"limit":10}',
   '[{"key":"mode","label":"模式","widget":"select","required":true,"options":[{"value":"read","label":"读取记忆"},{"value":"write","label":"写入记忆"}],"defaultValue":"read"},{"key":"enableGraph","label":"启用图谱","widget":"switch","required":false,"defaultValue":false},{"key":"limit","label":"返回条数","widget":"number","required":false,"defaultValue":10,"placeholder":"读模式返回条数"}]',
   -1, 1, 7, 1
@@ -980,9 +988,9 @@ UPDATE deepstack.agent_node_type SET
   enabled = 1,
   update_time = NOW()
 WHERE type_code = 'memory-node';
-INSERT INTO deepstack.agent_node_type (type_code, label, icon, category, default_props, property_fields, max_in_ports, max_out_ports, sort_order, enabled)
+INSERT INTO deepstack.agent_node_type (id, type_code, label, icon, category, default_props, property_fields, max_in_ports, max_out_ports, sort_order, enabled)
 SELECT
-  'card-gate-node', '人工确认', 'el-icon-user', 'flow',
+  1900000000000000108, 'card-gate-node', '人工确认', 'el-icon-user', 'flow',
   '{"requirePendingCards":true}',
   '[{"key":"requirePendingCards","label":"仅有待确认卡片时挂起","widget":"switch","required":false,"defaultValue":true}]',
   -1, 1, 8, 1
@@ -1013,14 +1021,14 @@ UPDATE deepstack.agent_node_type SET
 WHERE type_code = 'end-node';
 
 -- Demo intents (tenant_id=0)
-INSERT INTO deepstack.ai_intent (tenant_id, intent_code, intent_name, description, sort_order, enabled)
-SELECT 0, v.code, v.name, v.descr, v.ord, 1
+INSERT INTO deepstack.ai_intent (id, tenant_id, intent_code, intent_name, description, sort_order, enabled)
+SELECT v.id, 0, v.code, v.name, v.descr, v.ord, 1
 FROM (VALUES
-  ('HEALTH', '健康咨询', '健康相关意图', 10),
-  ('SPORT', '运动健身', '运动相关意图', 20),
-  ('SLEEP', '睡眠休息', '睡眠相关意图', 30),
-  ('GENERAL', '通用闲聊', '兜底/通用意图', 100)
-) AS v(code, name, descr, ord)
+  (1900000000000000201, 'HEALTH', '健康咨询', '健康相关意图', 10),
+  (1900000000000000202, 'SPORT', '运动健身', '运动相关意图', 20),
+  (1900000000000000203, 'SLEEP', '睡眠休息', '睡眠相关意图', 30),
+  (1900000000000000204, 'GENERAL', '通用闲聊', '兜底/通用意图', 100)
+) AS v(id, code, name, descr, ord)
 WHERE NOT EXISTS (
   SELECT 1 FROM deepstack.ai_intent i
   WHERE i.tenant_id = 0 AND i.intent_code = v.code AND i.is_del = 0
@@ -1028,10 +1036,11 @@ WHERE NOT EXISTS (
 
 -- Demo CHAT model (OpenAI-compatible placeholder - replace api_key before use)
 INSERT INTO deepstack.ai_model (
-    model_code, model_name, model_type, provider,
+    id, model_code, model_name, model_type, provider,
     base_url, api_key, api_model_name, extra_json,
     enabled, remark, creator, create_time, update_time
 ) VALUES (
+    1900000000000000301,
     'demo-openai-chat',
     'Demo OpenAI-Compatible Chat',
     0,
@@ -1050,13 +1059,14 @@ ON CONFLICT (model_code) DO NOTHING;
 
 -- Demo Agents: CHAT + GRAPH（图定义内嵌在 ai_agent，无独立 agent_workflow 表）
 INSERT INTO deepstack.ai_agent (
-    agent_code, agent_name, system_prompt, model_code,
+    id, agent_code, agent_name, system_prompt, model_code,
     temperature, max_tokens, top_p, memory_max_messages, enable_memory,
     response_format, enabled, enable_long_term_memory, enable_graph_memory,
     orchestrate_mode, graph_definition, graph_version, trace_mode, stream_progress,
     creator, create_time, update_time
 )
 SELECT
+    1900000000000000401,
     'demo_chat',
     'Demo Chat',
     'You are the AI Deepstack demo assistant. Answer clearly and concisely. Replace the demo model api_key before production use.',
@@ -1070,7 +1080,7 @@ WHERE m.model_code = 'demo-openai-chat'
 ON CONFLICT (agent_code) DO NOTHING;
 
 INSERT INTO deepstack.ai_agent (
-    agent_code, agent_name, system_prompt, model_code,
+    id, agent_code, agent_name, system_prompt, model_code,
     temperature, max_tokens, top_p, memory_max_messages, enable_memory,
     response_format, enabled, enable_long_term_memory, enable_graph_memory,
     orchestrate_mode, graph_definition, graph_version,
@@ -1079,6 +1089,7 @@ INSERT INTO deepstack.ai_agent (
     creator, create_time, update_time
 )
 SELECT
+    1900000000000000402,
     'demo_graph',
     'Demo Graph Agent',
     'You are the AI Deepstack demo assistant (GRAPH mode).',
@@ -1129,8 +1140,9 @@ ON CONFLICT (username) DO NOTHING;
 
 
 -- 通用业务确认卡（HITL）
-INSERT INTO deepstack.ai_tool (tool_code, tool_name, description, handler_bean, enabled)
+INSERT INTO deepstack.ai_tool (id, tool_code, tool_name, description, handler_bean, enabled)
 VALUES (
+  1900000000000000501,
   'propose_generic_confirm',
   '通用确认卡',
   '需要用户确认后再执行的操作时调用（确认、提交、删除等）。只发出确认卡，不执行副作用；用户确认后再由后续工具落地。',
@@ -1158,6 +1170,16 @@ CREATE TABLE IF NOT EXISTS deepstack.ai_agent_graph_version (
 CREATE INDEX IF NOT EXISTS idx_agent_graph_version_agent
     ON deepstack.ai_agent_graph_version (agent_id, version DESC);
 
+COMMENT ON TABLE deepstack.ai_agent_graph_version IS 'Agent 已发布图版本历史';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.id IS '主键';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.agent_id IS 'Agent 主键（ai_agent.id）';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.version IS '发布版本号，同一 Agent 内递增';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.definition IS '该版本图定义 JSON（发布快照，供回滚）';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.remark IS '发布备注';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.creator_id IS '创建人 ID';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.creator IS '创建人名称';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.create_time IS '创建时间（默认当前时间；业务勿赋值）';
+
 CREATE TABLE IF NOT EXISTS deepstack.agent_alert_event (
     id              BIGINT PRIMARY KEY,
     rule_code       VARCHAR(64)  NOT NULL,
@@ -1172,6 +1194,17 @@ CREATE TABLE IF NOT EXISTS deepstack.agent_alert_event (
 
 CREATE INDEX IF NOT EXISTS idx_agent_alert_fired
     ON deepstack.agent_alert_event (fired_at DESC);
+
+COMMENT ON TABLE deepstack.agent_alert_event IS 'Agent 告警触发记录';
+COMMENT ON COLUMN deepstack.agent_alert_event.id IS '主键';
+COMMENT ON COLUMN deepstack.agent_alert_event.rule_code IS '规则编码：ERROR_RATE / P95 / HITL_BACKLOG / RUNNING（阈值在 sys_config）';
+COMMENT ON COLUMN deepstack.agent_alert_event.agent_code IS '关联 Agent 编码；全站规则为 NULL';
+COMMENT ON COLUMN deepstack.agent_alert_event.severity IS '严重级别：warn / critical 等';
+COMMENT ON COLUMN deepstack.agent_alert_event.title IS '告警标题';
+COMMENT ON COLUMN deepstack.agent_alert_event.detail IS '告警详情';
+COMMENT ON COLUMN deepstack.agent_alert_event.fired_at IS '触发时间';
+COMMENT ON COLUMN deepstack.agent_alert_event.acknowledged IS '是否已确认：1已确认 0未确认';
+COMMENT ON COLUMN deepstack.agent_alert_event.create_time IS '创建时间（默认当前时间；业务勿赋值）';
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_ai_agent_name_active
     ON deepstack.ai_agent (agent_name)

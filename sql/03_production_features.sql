@@ -102,6 +102,14 @@ CREATE INDEX IF NOT EXISTS idx_agent_graph_version_agent
     ON deepstack.ai_agent_graph_version (agent_id, version DESC);
 
 COMMENT ON TABLE deepstack.ai_agent_graph_version IS 'Agent 已发布图版本历史';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.id IS '主键';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.agent_id IS 'Agent 主键（ai_agent.id）';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.version IS '发布版本号，同一 Agent 内递增';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.definition IS '该版本图定义 JSON（发布快照，供回滚）';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.remark IS '发布备注';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.creator_id IS '创建人 ID';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.creator IS '创建人名称';
+COMMENT ON COLUMN deepstack.ai_agent_graph_version.create_time IS '创建时间（默认当前时间；业务勿赋值）';
 
 -- --------------------------------------------------------------------
 -- F5：告警事件（规则阈值在 sys_config；触发记录落此表）
@@ -122,6 +130,15 @@ CREATE INDEX IF NOT EXISTS idx_agent_alert_fired
     ON deepstack.agent_alert_event (fired_at DESC);
 
 COMMENT ON TABLE deepstack.agent_alert_event IS 'Agent 告警触发记录';
+COMMENT ON COLUMN deepstack.agent_alert_event.id IS '主键';
+COMMENT ON COLUMN deepstack.agent_alert_event.rule_code IS '规则编码：ERROR_RATE / P95 / HITL_BACKLOG / RUNNING（阈值在 sys_config）';
+COMMENT ON COLUMN deepstack.agent_alert_event.agent_code IS '关联 Agent 编码；全站规则为 NULL';
+COMMENT ON COLUMN deepstack.agent_alert_event.severity IS '严重级别：warn / critical 等';
+COMMENT ON COLUMN deepstack.agent_alert_event.title IS '告警标题';
+COMMENT ON COLUMN deepstack.agent_alert_event.detail IS '告警详情';
+COMMENT ON COLUMN deepstack.agent_alert_event.fired_at IS '触发时间';
+COMMENT ON COLUMN deepstack.agent_alert_event.acknowledged IS '是否已确认：1已确认 0未确认';
+COMMENT ON COLUMN deepstack.agent_alert_event.create_time IS '创建时间（默认当前时间；业务勿赋值）';
 
 -- --------------------------------------------------------------------
 -- sys_config 种子（F1/F2/F4/F5）
