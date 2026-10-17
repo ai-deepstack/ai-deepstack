@@ -76,6 +76,16 @@ const pageTitle = computed(() => route.meta?.title || 'AI DeepStack')
 // 手机上点导航后收起抽屉
 watch(() => route.fullPath, () => { navOpen.value = false })
 
+// 登录页不套 .shell，靠文档自身滚动；全局 body 是 overflow:hidden（给控制台的
+// 内部滚动用），必须在这里解锁，否则小屏上登录按钮会卡在屏幕外拖不上来。
+watch(
+  isLoginPage,
+  (login) => {
+    document.body.classList.toggle('is-login', login)
+  },
+  { immediate: true }
+)
+
 async function logout() {
   try {
     await fetch('/api/auth/logout', {

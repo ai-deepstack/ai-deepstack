@@ -64,12 +64,6 @@
           <li class="login-stat"><strong>流式输出</strong><span>边生成边看结果</span></li>
           <li class="login-stat"><strong>模型 · 工具 · 知识库</strong><span>统一配置入口</span></li>
         </ul>
-
-        <!-- 页脚：开源项目的许可与版权，链到仓库 LICENSE -->
-        <p class="login-meta">
-          <a :href="`${GITHUB_URL}/blob/master/LICENSE`" target="_blank" rel="noopener">Apache-2.0</a>
-          <span>· © 2026 AI DeepStack</span>
-        </p>
       </section>
 
       <section class="login-panel">
@@ -90,6 +84,14 @@
           </button>
         </form>
       </section>
+
+      <!-- 页脚：开源项目的许可与版权，链到仓库 LICENSE。
+           DOM 上放在登录卡之后：手机上单列时它自然落到卡片下方，
+           桌面端再用网格定位回左栏底部。 -->
+      <p class="login-meta">
+        <a :href="`${GITHUB_URL}/blob/master/LICENSE`" target="_blank" rel="noopener">Apache-2.0</a>
+        <span>· © 2026 AI DeepStack</span>
+      </p>
     </div>
   </div>
 </template>
@@ -157,9 +159,9 @@ async function onSubmit() {
   width: 100%;
 }
 .login-meta {
-  /* margin-top:auto 推到左栏底部 */
-  margin: auto 0 0;
-  padding-top: 2.5rem;
+  /* 已从 .login-hero 挪到 .login-shell 的直接子级：桌面端靠网格第三行贴左栏底部，
+     手机端自然排在登录卡之后，不再需要 margin-top:auto 顶开。 */
+  margin: 0;
   font-size: 0.75rem;
   color: var(--muted);
 }

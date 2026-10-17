@@ -578,6 +578,20 @@ label {
 }
 
 /* Login */
+/* 登录页不套 .shell，靠文档自身滚动。全局 body 的 overflow:hidden 是给控制台
+   准备的（各页都在 .main 内部滚），在登录页必须解除——否则小屏上内容超出
+   视口后拖不动，登录按钮会卡在屏幕外。 */
+body.is-login {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+body.is-login #app {
+  height: auto;
+  min-height: 100%;
+}
+
 .login-stage {
   position: relative;
   min-height: 100vh;
@@ -630,19 +644,26 @@ label {
   grid-template-columns: minmax(0, 1fr) minmax(340px, 392px);
   /* stretch：左栏占满高度以支持底部入口行；卡片在自身栏内居中 */
   align-items: start;
-  /* 两行：第一行只放品牌行，第二行放标题组与登录卡。
-     这样卡片顶边与主标题对齐，而不是与上方的品牌行对齐（用 padding 硬凑会跟品牌行高度耦合）。 */
-  grid-template-rows: auto 1fr;
+  /* 三行：品牌行 / 标题组 + 登录卡 / 版权行。
+     版权在 DOM 里排在登录卡之后，手机单列时才会落到卡片下方；
+     桌面端靠第三行定位回左栏底部。 */
+  grid-template-rows: auto 1fr auto;
   column-gap: clamp(2rem, 6vw, 4.5rem);
   row-gap: 1.7rem;
 }
 .login-hero {
   grid-column: 1;
   grid-row: 2;
-  /* 占满第二行高度，底部入口行才能靠 margin-top:auto 贴住 */
+  /* 占满第二行高度，左栏内容才能按自然高度从上往下排 */
   align-self: stretch;
   display: flex;
   flex-direction: column;
+}
+/* 版权行：桌面端固定在左栏底部（第三行），手机上由 900px 断点重置为单列流式 */
+.login-meta {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: end;
 }
 .login-brand {
   grid-column: 1;
@@ -771,14 +792,15 @@ label {
 @media (max-width: 900px) {
   .login-shell {
     grid-template-columns: minmax(0, 1fr);
-    /* 单列时三块按 DOM 顺序各占一行（品牌 / 标题组 / 登录卡） */
-    grid-template-rows: auto auto auto;
+    /* 单列时各块按 DOM 顺序各占一行：品牌 / 入口 / 标题组 / 登录卡 / 版权 */
+    grid-template-rows: auto;
     row-gap: 1.5rem;
   }
   .login-brand,
   .login-links,
   .login-hero,
-  .login-panel {
+  .login-panel,
+  .login-meta {
     grid-column: 1;
     grid-row: auto;
   }
@@ -786,6 +808,9 @@ label {
     justify-self: start;
   }
   .login-hero {
+    align-self: auto;
+  }
+  .login-meta {
     align-self: auto;
   }
   .login-neural {
@@ -2402,6 +2427,7 @@ body:after {
     animation: none;
     padding: 0.85rem 0.85rem calc(1rem + env(safe-area-inset-bottom));
     overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
   .main:has(.graph-page) {
     padding: 0.7rem 0.7rem calc(0.7rem + env(safe-area-inset-bottom));
@@ -2636,6 +2662,10 @@ body:after {
   .alert-detail { max-width: none; }
   .kpi-strip { gap: 0.5rem; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
-  .login-stage { padding: 1.5rem 1.15rem; padding-top: 2.5rem; }
+  /* 登录页滚动交给文档（见 body.is-login），这里只管内边距和安全区 */
+  .login-stage {
+    padding: 1.5rem 1.15rem calc(1.5rem + env(safe-area-inset-bottom));
+    padding-top: calc(2.5rem + env(safe-area-inset-top));
+  }
   .login-card h2 { font-size: 1.55rem; }
 }
