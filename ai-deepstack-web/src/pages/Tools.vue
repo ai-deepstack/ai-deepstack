@@ -24,20 +24,20 @@
           </thead>
           <tbody>
             <tr v-for="item in list" :key="item.id">
-              <td><code>{{ item.toolCode }}</code></td>
-              <td>{{ item.toolName }}</td>
-              <td>
+              <td data-label="编码"><code>{{ item.toolCode }}</code></td>
+              <td data-label="名称">{{ item.toolName }}</td>
+              <td data-label="来源">
                 <span class="pill" :class="isMcp(item) ? 'pill-brass' : 'pill-teal'">
                   {{ item.sourceTypeName || (isMcp(item) ? 'MCP' : 'LOCAL') }}
                 </span>
               </td>
-              <td class="muted">
+              <td class="muted" data-label="Handler / 远端">
                 <template v-if="isMcp(item)">
                   {{ item.mcpConnectionCode }} / {{ item.mcpToolName }}
                 </template>
                 <template v-else>{{ item.handlerBean || '—' }}</template>
               </td>
-              <td>
+              <td data-label="状态">
                 <span class="pill" :class="item.enabled === EnabledStatus.ENABLED ? 'pill-ok' : 'pill-off'">
                   {{ item.enabledName || (item.enabled === EnabledStatus.ENABLED ? '启用' : '停用') }}
                 </span>

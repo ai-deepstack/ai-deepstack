@@ -26,17 +26,17 @@
           </thead>
           <tbody>
             <tr v-for="item in list" :key="item.id">
-              <td><code>{{ item.modelCode }}</code></td>
-              <td>{{ item.modelName }}</td>
-              <td><span class="pill">{{ item.modelTypeName || item.modelType }}</span></td>
-              <td>
+              <td data-label="编码"><code>{{ item.modelCode }}</code></td>
+              <td data-label="名称">{{ item.modelName }}</td>
+              <td data-label="类型"><span class="pill">{{ item.modelTypeName || item.modelType }}</span></td>
+              <td data-label="可见性">
                 <span class="pill" :class="item.visibility === ModelVisibility.PRIVATE ? 'pill-brass' : 'pill-teal'">
                   {{ item.visibilityName || (item.visibility === ModelVisibility.PRIVATE ? '私有' : '公共') }}
                 </span>
               </td>
-              <td class="muted">{{ item.ownerId ?? '—' }}</td>
-              <td>{{ item.provider }}</td>
-              <td>
+              <td class="muted" data-label="所有者">{{ item.ownerId ?? '—' }}</td>
+              <td data-label="供应商">{{ item.provider }}</td>
+              <td data-label="状态">
                 <span class="pill" :class="item.enabled === EnabledStatus.ENABLED ? 'pill-ok' : 'pill-off'">
                   {{ item.enabledName || (item.enabled === EnabledStatus.ENABLED ? '启用' : '停用') }}
                 </span>

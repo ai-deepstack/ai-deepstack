@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="chat-page">
     <header class="page-head">
       <div>
         <h1>试用台</h1>
@@ -11,8 +11,14 @@
       </div>
     </header>
 
-    <div class="chat-layout">
-      <aside class="panel hud-corners" style="padding: 1rem">
+    <!-- 手机端：配置与轨迹面板默认收起，避免占满首屏把对话挤到折叠线以下 -->
+    <button class="chat-side-toggle" type="button" @click="sideOpen = !sideOpen">
+      <span>配置与运行轨迹</span>
+      <span class="muted">{{ sideOpen ? '收起' : '展开' }}</span>
+    </button>
+
+    <div class="chat-layout" :class="{ 'side-open': sideOpen }">
+      <aside class="panel hud-corners chat-side" style="padding: 1rem">
         <div class="field">
           <label>Agent</label>
           <PropSelect
@@ -53,7 +59,7 @@
         </div>
       </aside>
 
-      <section class="panel hud-corners" style="display: flex; flex-direction: column; min-height: 560px">
+      <section class="panel hud-corners chat-main">
         <p v-if="error" class="error">{{ error }}</p>
         <div ref="streamEl" class="chat-stream">
           <div
@@ -136,6 +142,8 @@ const usage = ref(null)
 const error = ref('')
 const streaming = ref(false)
 const streamEl = ref(null)
+/** 手机端配置面板是否展开；桌面端由 CSS 忽略此状态，面板始终可见 */
+const sideOpen = ref(false)
 let abortCtrl = null
 
 const currentAgent = computed(() => agents.value.find((a) => a.value === agentCode.value))

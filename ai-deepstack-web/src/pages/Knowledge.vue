@@ -31,15 +31,15 @@
                 :key="item.id"
                 :style="selected?.id === item.id ? 'background: var(--brass-soft)' : ''"
               >
-                <td><code>{{ item.baseCode }}</code></td>
-                <td>{{ item.baseName }}</td>
-                <td class="muted">{{ item.embeddingModelName || item.embeddingModelCode || '—' }}</td>
-                <td>
+                <td data-label="编码"><code>{{ item.baseCode }}</code></td>
+                <td data-label="名称">{{ item.baseName }}</td>
+                <td class="muted" data-label="Embedding">{{ item.embeddingModelName || item.embeddingModelCode || '—' }}</td>
+                <td data-label="图谱">
                   <span class="pill" :class="item.enableGraph === 1 ? 'pill-ok' : 'pill-off'">
                     {{ item.enableGraph === 1 ? '开' : '关' }}
                   </span>
                 </td>
-                <td>
+                <td data-label="状态">
                   <span class="pill" :class="item.enabled === EnabledStatus.ENABLED ? 'pill-ok' : 'pill-off'">
                     {{ item.enabledName || (item.enabled === EnabledStatus.ENABLED ? '启用' : '停用') }}
                   </span>
@@ -86,9 +86,9 @@
             </thead>
             <tbody>
               <tr v-for="d in docs" :key="d.id">
-                <td>{{ d.title || d.docName || d.fileName || d.id }}</td>
-                <td>{{ d.embedStatusName || d.parseStatusName || d.status || d.embedStatus || '—' }}</td>
-                <td>
+                <td data-label="标题">{{ d.title || d.docName || d.fileName || d.id }}</td>
+                <td data-label="嵌入">{{ d.embedStatusName || d.parseStatusName || d.status || d.embedStatus || '—' }}</td>
+                <td data-label="写图">
                   <span :title="d.graphError || ''">{{ d.graphStatusName || '—' }}</span>
                 </td>
                 <td class="row-actions">

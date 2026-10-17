@@ -102,16 +102,16 @@
           </thead>
           <tbody>
             <tr v-for="item in list" :key="asId(item.id)">
-              <td class="muted nowrap">{{ formatTime(item.createTime) }}</td>
-              <td><code>{{ item.agentCode || item.agentId }}</code></td>
-              <td>{{ item.orchestrateModeName || item.orchestrateMode }}</td>
-              <td>
+              <td class="muted nowrap" data-label="时间">{{ formatTime(item.createTime) }}</td>
+              <td data-label="Agent"><code>{{ item.agentCode || item.agentId }}</code></td>
+              <td data-label="模式">{{ item.orchestrateModeName || item.orchestrateMode }}</td>
+              <td data-label="状态">
                 <span class="pill" :class="statusPill(item.status)">{{ item.statusName || item.status }}</span>
               </td>
-              <td class="nowrap">{{ formatMs(item.durationMs) }}</td>
-              <td>{{ item.totalTokens ?? '—' }}</td>
-              <td class="muted err-cell">{{ item.errorCode || '—' }}</td>
-              <td>
+              <td class="nowrap" data-label="耗时">{{ formatMs(item.durationMs) }}</td>
+              <td data-label="Token">{{ item.totalTokens ?? '—' }}</td>
+              <td class="muted err-cell" data-label="错误">{{ item.errorCode || '—' }}</td>
+              <td class="row-actions">
                 <button class="btn-ghost" type="button" @click="openDetail(item.id)">详情</button>
               </td>
             </tr>

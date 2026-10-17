@@ -24,16 +24,18 @@
           </thead>
           <tbody>
             <tr v-for="item in list" :key="item.id">
-              <td><code>{{ item.connectionCode }}</code></td>
-              <td>
-                {{ item.connectionName }}
-                <div v-if="item.lastError" class="error" style="font-size: 0.8rem; margin-top: 0.25rem">
-                  {{ item.lastError }}
-                </div>
+              <td data-label="编码"><code>{{ item.connectionCode }}</code></td>
+              <td data-label="名称">
+                <span>
+                  {{ item.connectionName }}
+                  <span v-if="item.lastError" class="error" style="display: block; font-size: 0.8rem; margin-top: 0.25rem">
+                    {{ item.lastError }}
+                  </span>
+                </span>
               </td>
-              <td><span class="pill">{{ item.transportName || item.transport }}</span></td>
-              <td>{{ item.toolCount ?? 0 }}</td>
-              <td>
+              <td data-label="传输"><span class="pill">{{ item.transportName || item.transport }}</span></td>
+              <td data-label="工具数">{{ item.toolCount ?? 0 }}</td>
+              <td data-label="状态">
                 <span class="pill" :class="item.enabled === EnabledStatus.ENABLED ? 'pill-ok' : 'pill-off'">
                   {{ item.enabledName || (item.enabled === EnabledStatus.ENABLED ? '启用' : '停用') }}
                 </span>

@@ -34,7 +34,7 @@
     <div v-if="overview" class="panel">
       <h2 class="section-title">按天趋势</h2>
       <div v-if="dailyTrend.length" class="table-wrap">
-        <table class="table">
+        <table class="table table-plain">
           <thead>
             <tr><th>日期</th><th>调用</th><th>失败</th></tr>
           </thead>

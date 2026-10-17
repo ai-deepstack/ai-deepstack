@@ -23,10 +23,10 @@
           </thead>
           <tbody>
             <tr v-for="item in list" :key="item.id">
-              <td><code>{{ item.intentCode }}</code></td>
-              <td>{{ item.intentName }}</td>
-              <td class="muted">{{ item.sortOrder }}</td>
-              <td>
+              <td data-label="编码"><code>{{ item.intentCode }}</code></td>
+              <td data-label="名称">{{ item.intentName }}</td>
+              <td class="muted" data-label="排序">{{ item.sortOrder }}</td>
+              <td data-label="状态">
                 <span class="pill" :class="item.enabled === EnabledStatus.ENABLED ? 'pill-ok' : 'pill-off'">
                   {{ item.enabledName || (item.enabled === EnabledStatus.ENABLED ? '启用' : '停用') }}
                 </span>

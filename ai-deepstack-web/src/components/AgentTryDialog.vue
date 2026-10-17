@@ -362,4 +362,23 @@ onUnmounted(abortStream)
   width: 100%;
   box-sizing: border-box;
 }
+
+@media (max-width: 768px) {
+  .try-mask { padding: 0.6rem; }
+  .try-dialog {
+    width: 100%;
+    max-height: 90dvh;
+    padding: 0.95rem 0.9rem calc(0.95rem + env(safe-area-inset-bottom));
+  }
+  /* 标题和操作按钮并排会互相挤（Agent 名一换行就压到按钮上），改成上下堆叠 */
+  .try-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+  .try-head h2 { font-size: 1.05rem; }
+  .try-head .row-actions { flex-wrap: wrap; }
+  .try-head .row-actions > * { flex: 1 1 auto; }
+  .try-stream { min-height: 200px; }
+}
 </style>

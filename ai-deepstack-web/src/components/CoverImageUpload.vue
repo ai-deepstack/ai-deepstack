@@ -29,7 +29,7 @@
         <div class="cover-crop-panel" role="dialog" aria-modal="true">
           <h3>裁剪封面</h3>
           <p class="muted" style="margin: 0 0 0.75rem; font-size: 0.78rem">
-            拖动图片调整位置，滚轮缩放；输出比例 16:9
+            拖动图片调整位置，滚轮或下方滑杆缩放；输出比例 16:9
           </p>
           <div
             class="cover-crop-stage"
@@ -50,6 +50,19 @@
               @load="onImageLoad"
             />
             <div class="cover-crop-frame" ref="frameRef" aria-hidden="true" />
+          </div>
+          <div class="cover-crop-zoom">
+            <span class="cover-crop-zoom-label">缩放</span>
+            <input
+              class="cover-crop-range"
+              type="range"
+              :min="minScale"
+              :max="6"
+              step="0.01"
+              :value="scale"
+              aria-label="缩放图片"
+              @input="onZoomInput"
+            />
           </div>
           <div class="cover-crop-actions">
             <button class="btn-ghost" type="button" @click="cancelCrop">取消</button>
@@ -89,6 +102,8 @@ const cropVisible = ref(false)
 const rawUrl = ref('')
 const natural = ref({ w: 0, h: 0 })
 const scale = ref(1)
+/** 缩放下限（图片刚好盖满裁剪框），供滑杆的 min 使用 */
+const minScale = ref(1)
 const offset = ref({ x: 0, y: 0 })
 const dragging = ref(false)
 const dragStart = ref({ x: 0, y: 0, ox: 0, oy: 0 })
@@ -160,11 +175,35 @@ function fitImage() {
   const { w, h } = natural.value
   if (!stage || !box || !w || !h) return
   const cover = Math.max(box.fw / w, box.fh / h)
+  minScale.value = cover
   scale.value = cover
   offset.value = {
     x: box.left + (box.fw - w * cover) / 2,
     y: box.top + (box.fh - h * cover) / 2
   }
+  clampOffset()
+}
+
+/** 当前能缩到的最小倍率：图片恰好盖满裁剪框 */
+function currentMinScale() {
+  const box = frameRectInStage()
+  const { w, h } = natural.value
+  if (!box || !w || !h) return 1
+  return Math.max(box.fw / w, box.fh / h)
+}
+
+/** 以画布内 (cx, cy) 为锚点缩放到 next；滚轮和滑杆共用 */
+function zoomTo(next, cx, cy) {
+  const { w, h } = natural.value
+  if (!w || !h) return
+  const clamped = Math.min(6, Math.max(currentMinScale(), next))
+  if (clamped === scale.value) return
+  const ratio = clamped / scale.value
+  offset.value = {
+    x: cx - (cx - offset.value.x) * ratio,
+    y: cy - (cy - offset.value.y) * ratio
+  }
+  scale.value = clamped
   clampOffset()
 }
 
@@ -209,22 +248,22 @@ function onPointerUp() {
 }
 
 function onWheel(e) {
-  const box = frameRectInStage()
   const stage = stageRef.value
-  const { w, h } = natural.value
-  if (!box || !stage || !w || !h) return
-  const minScale = Math.max(box.fw / w, box.fh / h)
-  const next = Math.min(6, Math.max(minScale, scale.value * (e.deltaY < 0 ? 1.08 : 0.92)))
+  if (!stage) return
   const rect = stage.getBoundingClientRect()
-  const cx = e.clientX - rect.left
-  const cy = e.clientY - rect.top
-  const ratio = next / scale.value
-  offset.value = {
-    x: cx - (cx - offset.value.x) * ratio,
-    y: cy - (cy - offset.value.y) * ratio
-  }
-  scale.value = next
-  clampOffset()
+  zoomTo(
+    scale.value * (e.deltaY < 0 ? 1.08 : 0.92),
+    e.clientX - rect.left,
+    e.clientY - rect.top
+  )
+}
+
+/** 滑杆缩放：手机上收不到 wheel 事件，这是唯一的缩放入口。
+    以裁剪框中心为锚点，手指拖滑杆时画面不会往一边跑。 */
+function onZoomInput(e) {
+  const box = frameRectInStage()
+  if (!box) return
+  zoomTo(Number(e.target.value), box.left + box.fw / 2, box.top + box.fh / 2)
 }
 
 function cancelCrop() {
@@ -393,10 +432,52 @@ onUnmounted(() => {
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.48);
   pointer-events: none;
 }
+.cover-crop-zoom {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.cover-crop-zoom-label {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* 滑杆：清掉全局 input 的边框/内边距/底色，否则会渲染成一个方框 */
+.cover-crop-range {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: 1.9rem;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  accent-color: var(--cyan);
+  cursor: pointer;
+}
 .cover-crop-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .cover-crop-mask { padding: 0.6rem; }
+  .cover-crop-panel {
+    padding: 1rem 0.9rem calc(1rem + env(safe-area-inset-bottom));
+  }
+  .cover-crop-stage { height: min(46dvh, 320px); }
+  /* 手指拖滑杆要给足高度 */
+  .cover-crop-range { height: 2.6rem; }
+  .cover-crop-actions {
+    flex-direction: column-reverse;
+    gap: 0.45rem;
+  }
+  .cover-crop-actions > * { width: 100%; }
 }
 </style>

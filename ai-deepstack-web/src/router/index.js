@@ -19,22 +19,22 @@ import Alerts from '../pages/Alerts.vue'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login', component: Login, meta: { public: true } },
+    { path: '/login', component: Login, meta: { public: true, title: '登录' } },
     { path: '/', redirect: '/playground' },
-    { path: '/playground', component: Playground },
-    { path: '/runs', component: AgentRuns },
-    { path: '/alerts', component: Alerts },
-    { path: '/agents', component: Agents },
-    { path: '/agents/:id/stats', component: AgentStats },
-    { path: '/agents/:id/graph', component: GraphEditor },
-    { path: '/agents/:id', component: AgentDetail },
-    { path: '/models', component: Models },
-    { path: '/tools', component: Tools },
-    { path: '/mcp', component: McpConnections },
-    { path: '/intents', component: Intents },
-    { path: '/knowledge', component: Knowledge },
-    { path: '/knowledge/:baseCode/graph', component: KnowledgeGraph },
-    { path: '/settings', component: Settings }
+    { path: '/playground', component: Playground, meta: { title: '试用台' } },
+    { path: '/runs', component: AgentRuns, meta: { title: '运行记录' } },
+    { path: '/alerts', component: Alerts, meta: { title: '告警' } },
+    { path: '/agents', component: Agents, meta: { title: 'Agent' } },
+    { path: '/agents/:id/stats', component: AgentStats, meta: { title: 'Agent 统计' } },
+    { path: '/agents/:id/graph', component: GraphEditor, meta: { title: '图编排' } },
+    { path: '/agents/:id', component: AgentDetail, meta: { title: 'Agent 详情' } },
+    { path: '/models', component: Models, meta: { title: '模型' } },
+    { path: '/tools', component: Tools, meta: { title: '工具' } },
+    { path: '/mcp', component: McpConnections, meta: { title: 'MCP' } },
+    { path: '/intents', component: Intents, meta: { title: '意图' } },
+    { path: '/knowledge', component: Knowledge, meta: { title: '知识库' } },
+    { path: '/knowledge/:baseCode/graph', component: KnowledgeGraph, meta: { title: '知识图谱' } },
+    { path: '/settings', component: Settings, meta: { title: '系统设置' } }
   ]
 })
 

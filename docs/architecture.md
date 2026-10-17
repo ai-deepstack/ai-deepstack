@@ -4,64 +4,7 @@
 
 ## 分层
 
-```mermaid
-flowchart TB
-    subgraph L5["交付"]
-        app["app — 参考单体（JWT + 控制台静态资源）"]
-        web["web — Vue 控制台（无 Java 依赖）"]
-    end
-    subgraph L4["聚合"]
-        starter["starter — 宿主引这一个"]
-    end
-    subgraph L3["编排"]
-        chat["chat"] --> agent["agent"]
-        agent --> card["card"]
-        card --> knowledge["knowledge"]
-    end
-    subgraph L2["能力实现"]
-        infra["infra"]
-        tool["tool"]
-        gage["graph-age"]
-        mpg["memory-pg"]
-        storage["storage — 对象存储（AWS SDK 只在这里）"]
-    end
-    subgraph L1["契约"]
-        rapi["runtime-api"]
-        gapi["graph-api"]
-        mapi["memory-api"]
-        sapi["settings-api"]
-    end
-    subgraph L0["底座"]
-        kernel["kernel"]
-    end
-
-    app --> starter
-    starter --> chat
-    starter --> infra
-    starter --> tool
-    starter --> gage
-    starter --> mpg
-    starter --> storage
-    starter --> rapi
-    starter --> gapi
-    starter --> mapi
-    starter --> sapi
-    chat --> runtime["runtime — 图执行引擎"]
-    agent --> runtime
-    runtime --> rapi
-    infra --> rapi
-    tool --> rapi
-    knowledge --> rapi
-    knowledge --> storage
-    storage --> kernel
-    card --> rapi
-    gage --> gapi
-    mpg --> mapi
-    rapi --> kernel
-    gapi --> kernel
-    mapi --> kernel
-    sapi --> kernel
-```
+![模块分层：基础 / 能力 / 核心 / 交付](assets/diagrams/diag-05-module-map.webp)
 
 ## 模块依赖表
 
@@ -104,8 +47,8 @@ flowchart TB
 
 `RuntimeSpiAutoConfiguration` 为未装配的端口提供占位实现，分两类：
 
-- **调用即失败**：`ModelPort`、`ToolPort`、`KnowledgePort`、`HitlPort.resume` —— 宿主配置了对应能力却没引入 Adapter 时抛 `IllegalStateException` 并指明缺失模块。静默返回空会被误读成「检索没命中」「工具没输出」。
-- **标记不可用**：`MemoryPort`、`HitlPort.available()` —— 属可选能力，调用方先看 `available()` 再决定是否使用。
+- **调用即失败**：`ModelPort`、`ToolPort`、`KnowledgePort`、`HitlPort.resume`。宿主配置了对应能力却没引入 Adapter 时抛 `IllegalStateException` 并指明缺失模块。静默返回空会被误读成「检索没命中」「工具没输出」。
+- **标记不可用**：`MemoryPort`、`HitlPort.available()`。属可选能力，调用方先看 `available()` 再决定是否使用。
 
 ### 请求上下文
 

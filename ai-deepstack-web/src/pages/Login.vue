@@ -194,4 +194,15 @@ async function onSubmit() {
   color: var(--cyan-bright);
   background: rgba(61, 224, 197, 0.08);
 }
+/* 单列时把「项目介绍 / 文档 / GitHub」从网格第二列拉回来。
+   这里必须写：scoped 的 .login-links[data-v-x]（0,2,0）压得过 styles.css 里
+   900px 断点的 .login-links（0,1,0），只靠全局规则改不动它——
+   留在第二列会凭空撑出一个隐式列，把左栏挤成几十像素宽。 */
+@media (max-width: 900px) {
+  .login-links {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+}
 </style>

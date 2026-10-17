@@ -29,9 +29,9 @@
           </thead>
           <tbody>
             <tr v-for="item in list" :key="item.id">
-              <td class="muted">{{ formatTime(item.firedAt) }}</td>
-              <td><code>{{ item.ruleCode }}</code></td>
-              <td>
+              <td class="muted" data-label="时间">{{ formatTime(item.firedAt) }}</td>
+              <td data-label="规则"><code>{{ item.ruleCode }}</code></td>
+              <td data-label="Agent">
                 <router-link
                   v-if="item.agentCode"
                   class="btn-ghost"
@@ -40,15 +40,15 @@
                 >{{ item.agentCode }}</router-link>
                 <span v-else class="muted">全站</span>
               </td>
-              <td>{{ item.severity || '—' }}</td>
-              <td>{{ item.title }}</td>
-              <td class="muted" style="max-width: 18rem; white-space: normal">{{ item.detail || '—' }}</td>
-              <td>
+              <td data-label="级别">{{ item.severity || '—' }}</td>
+              <td data-label="标题">{{ item.title }}</td>
+              <td class="muted alert-detail" data-label="详情">{{ item.detail || '—' }}</td>
+              <td data-label="状态">
                 <span class="pill" :class="item.acknowledged ? 'pill-ok' : 'pill-brass'">
                   {{ item.acknowledged ? '已确认' : '未确认' }}
                 </span>
               </td>
-              <td>
+              <td class="row-actions">
                 <button
                   v-if="!item.acknowledged"
                   class="btn-ghost"

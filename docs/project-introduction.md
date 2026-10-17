@@ -1,9 +1,9 @@
 # AI DeepStack · 项目介绍
 
-> 在 Spring 工程里把 Agent 做成可运营、可审计、可嵌入现有系统的能力。  
+> 在现有 Spring 工程里做 Agent：配置和运行都落在库里，能嵌进已有系统。  
 > Spring AI × LangGraph4j · Java 21 · 单租户控制台 + 可嵌入依赖
 
-![AI DeepStack 分层架构示意](assets/deepstack-architecture-hero.jpg)
+![AI DeepStack 分层架构示意](assets/deepstack-architecture-hero.webp)
 
 ---
 
@@ -26,43 +26,38 @@
 
 ## 1. 一句话定位
 
-AI DeepStack 是面向 Java / Spring 团队的 Agent 平台：以 Agent 为配置与调用的核心，把对话、图编排、工具（含 MCP）、知识库（向量检索，可选图谱增强）、人工确认、运行记录与配额告警，收进同一套可落库、可运营、可嵌进现有工程的运行时。
+AI DeepStack 是给 Java / Spring 团队用的 Agent 平台。对话、图编排、工具（含 MCP）、知识库（向量检索，可叠加图谱增强）、人工确认、运行记录和配额告警都在同一套运行时里，配置落库，能嵌进现有工程。
 
-Agent 在这里是可部署的业务单元：有稳定编码、有版本、有配额、有运行记录、可回滚。
+Agent 在这里是一个可部署的单元，有编码、有版本、有配额、有运行记录，能回滚。
 
 ---
 
 ## 2. 为什么需要它
 
-![分裂栈 vs 统一栈](assets/deepstack-why-unified.jpg)
+![分裂栈 vs 统一栈](assets/deepstack-why-unified.webp)
 
-企业落地 Agent 时，常见两条路都容易卡死：
+企业落地 Agent，常见两条路都走不顺。
 
-| 路径 | 典型做法 | 隐患 |
-| --- | --- | --- |
-| 分裂栈 | Python 编排 + Java 业务 HTTP | 鉴权、事务、发布、日志两套；改意图要两边发版；排障对不上 |
-| 薄封装 | 业务里直接调大模型接口 | 没有 Agent 配置实体；提示词 / 工具 / 知识库散落；上线缺限流、脱敏、人工确认、版本 |
+一条是分裂栈：Python 里编排、Java 里写业务，中间用 HTTP 接。鉴权和事务是两套，发布和日志也是两套，改一个意图两边都要发版，出了问题还得对着时间线排。
 
-DeepStack 的立场是：
+另一条是薄封装：业务代码里直接调大模型接口。这样没有 Agent 这个配置实体，提示词、工具定义、知识库绑定散落在各处；限流、脱敏、人工确认、版本管理要等上线前再补，往往补不完。
 
-> Agent 能力长在现有 Java 工程里：同一套登录、同一套库表、同一套发布与审计；编排借鉴 LangGraph 的思想，运行时与运营面留在 Spring。
+DeepStack 选的是第三条：Agent 能力长在现有 Java 工程里，登录、库表、发布流程都沿用现成的；编排借鉴 LangGraph 的思路，但运行时和运营面留在 Spring。
 
 ### 必要性
 
-1. 业务系统已经是 Spring — 再为 Agent 另拉一套 Python 运行时，等于永久双栈。
-2. Agent 要进审批 / 写库 — 没有人工确认、断点恢复、运行记录，不敢上生产。
-3. 运营要改配置而不是改代码 — 模型、工具、图、开关必须落库 + 控制台。
-4. 成本与安全可度量 — 配额、脱敏、告警、节点耗时是上线门槛，不是锦上添花。
+1. 业务系统已经是 Spring，再为 Agent 拉一套 Python 运行时，等于永久维护两套技术栈。
+2. Agent 要参与审批和写库，没有人工确认、断点恢复和运行记录，上不了生产。
+3. 运营需要改配置而不是改代码，所以模型、工具、图和开关都得落库，并且有控制台能改。
+4. 成本和风险要能度量，配额、脱敏、告警、节点耗时是上线门槛，不是后期再补的优化项。
 
 ---
 
 ## 3. 解决了什么问题
 
-![DeepStack 解决的问题](assets/diagrams/diag-01-problems-mindmap.png)
+![DeepStack 解决的问题](assets/diagrams/diag-01-problems-mindmap.webp)
 
-### 对照表
-
-| 痛点 | 没有平台时 | DeepStack |
+| 问题 | 没有平台时 | DeepStack |
 | --- | --- | --- |
 | Prompt / 工具 / 知识库各写各的 | 配置漂移、无法归因 | 全部挂在 `agentCode` |
 | 图编排与对话两套入口 | 调用方困惑 | 对话接口只认 Agent 编码，编排方式是配置属性 |
@@ -77,40 +72,39 @@ DeepStack 的立场是：
 
 ### 4.1 以 Agent 为中心
 
-调用与配置都围绕 Agent（见 [`ROADMAP.md`](../ROADMAP.md)）：编排方式是 Agent 上的属性（对话或流程图），画布与试跑挂在同一资源下；模型、工具、知识库是平台目录，供多个 Agent 引用；复用靠「复制 Agent」进入新建编辑页。
+调用和配置都围绕 Agent 展开。编排方式是 Agent 上的一个属性（对话或流程图），画布和试跑挂在同一个资源下。模型、工具、知识库属于平台目录，可以被多个 Agent 引用；要复用就复制一个 Agent 再改（见 [`ROADMAP.md`](../ROADMAP.md)）。
 
-![Agent 中心模型](assets/diagrams/diag-02-agent-centric.png)
+![Agent 中心模型](assets/diagrams/diag-02-agent-centric.webp)
 
-### 4.2 能力可替换，编排不绑死某一种存储
+### 4.2 能力可替换
 
-执行层通过扩展接口调用模型、工具、知识、卡片、人工确认、记忆等能力；具体实现放在对应模块。也可以自己实现接口，或直接用聚合依赖自带的实现。
+执行层通过扩展接口调用模型、工具、知识、卡片、人工确认、记忆这些能力，具体实现放在各自的模块里。你可以自己实现接口，也可以直接用聚合依赖自带的实现。
 
-### 4.3 工具先登记，再按 Agent 开通
+### 4.3 工具先登记，再绑定
 
-- 目录里的全部工具，不等于某个 Agent 都能用——以绑定关系为准。  
-- 外部工具：先建连接并同步进工具目录，Agent 只勾选工具，不直接绑连接。  
-- 工具较多时，可按需分批暴露给模型，避免一次塞入过多说明。
+目录里有全部工具，但某个 Agent 能用哪些，以绑定关系为准。
 
-### 4.4 知识：向量检索为主，图谱按需打开
+外部工具要先建连接、同步进工具目录，Agent 只勾选工具，不直接绑连接。
 
-默认向量检索，并可叠加全文检索；在系统与知识库都开启图谱时，入库后异步抽实体写图库，问答时再按关系补充片段。关掉图谱后，行为与纯向量检索一致。详见 [`knowledge-graph-rag.md`](knowledge-graph-rag.md)。
+工具多的时候可以分批暴露给模型，避免一次塞进太多说明。
+
+### 4.4 知识检索：向量为主，图谱可选
+
+默认走向量检索，可以叠加全文检索。系统和知识库都打开图谱时，入库后异步抽取实体写入图库，问答时再按关系补充片段。关掉图谱，行为和纯向量检索完全一致。详见 [`knowledge-graph-rag.md`](knowledge-graph-rag.md)。
 
 ### 4.5 上线能力同仓交付
 
-脱敏、配额、流程版本、人工确认超时、告警、步骤耗时、模型可见范围、评测导出、Agent 用量统计 — 见 [`production-features.md`](production-features.md)。
+脱敏、配额、流程版本、人工确认超时、告警、步骤耗时、模型可见范围、评测导出和 Agent 用量统计，都在主仓里一起交付。详见 [`production-features.md`](production-features.md)。
 
 ### 4.6 两种用法
 
-| 形态 | 模块 | 场景 |
-| --- | --- | --- |
-| 独立部署 | 参考应用 + 控制台 | 内网运营台、试用、演示 |
-| 嵌进现有系统 | 聚合依赖包 | 已有 Spring Boot 业务工程 |
+独立部署时，用参考应用加控制台，适合内网运营台、试用和演示。已有 Spring Boot 工程的话，引入聚合依赖包就能嵌进去。
 
 ---
 
 ## 5. 产品模型
 
-![产品模型关系](assets/diagrams/diag-03-product-model.png)
+![产品模型关系](assets/diagrams/diag-03-product-model.webp)
 
 调用方只认 Agent 编码。步骤类型、工具、模型、知识库是平台目录；需要人工确认时，用卡片挂起流程，确认后再继续。
 
@@ -120,7 +114,7 @@ DeepStack 的立场是：
 
 ### 6.1 逻辑分层
 
-分层与依赖方向见 [`architecture.md`](architecture.md)（含可渲染的分层图与模块依赖表，按各模块 pom 生成）。
+分层与依赖方向见 [`architecture.md`](architecture.md)：分层图是概念示意，模块依赖表按各模块 `pom.xml` 生成。
 
 ### 6.2 Maven 模块地图
 
@@ -150,7 +144,7 @@ DeepStack 的立场是：
 
 ### 6.3 扩展接口归属
 
-![扩展接口归属](assets/diagrams/diag-06-port-mapping.png)
+![扩展接口归属](assets/diagrams/diag-06-port-mapping.webp)
 
 原则：谁提供能力，谁实现对应接口；执行模块在缺少实现时给出可裁剪的空实现，方便按需装配。
 
@@ -158,27 +152,27 @@ DeepStack 的立场是：
 
 ## 7. 关键数据流
 
-![请求生命周期示意](assets/deepstack-request-lifecycle.jpg)
+![请求生命周期示意](assets/deepstack-request-lifecycle.webp)
 
 ### 7.1 对话主路径
 
-![对话主路径时序](assets/diagrams/diag-07-chat-sequence.png)
+![对话主路径时序](assets/diagrams/diag-07-chat-sequence.webp)
 
 ### 7.2 流程图中的人工确认
 
-![流程图与人工确认状态](assets/diagrams/diag-08-hitl-states.png)
+![流程图与人工确认状态](assets/diagrams/diag-08-hitl-states.webp)
 
 流程可在检查点挂起；前端展示确认卡片，用户确认后从断点继续。
 
 ### 7.3 知识入库与召回（含可选图谱）
 
-![知识入库与召回](assets/diagrams/diag-09-knowledge-flow.png)
+![知识入库与召回](assets/diagrams/diag-09-knowledge-flow.webp)
 
 启用图谱需同时满足：系统打开图谱、图库就绪、该知识库勾选启用图谱。详见 [`knowledge-graph-rag-summary.md`](knowledge-graph-rag-summary.md)。
 
 ### 7.4 工具与外部连接
 
-![工具接入链路](assets/diagrams/diag-10-tools-mcp.png)
+![工具接入链路](assets/diagrams/diag-10-tools-mcp.webp)
 
 ---
 
@@ -199,7 +193,7 @@ DeepStack 的立场是：
 
 可观测分层（日志 / 轨迹 / 指标 / Run UI）见 [`agent-observability.md`](agent-observability.md)。运营开关统一走 [`sys-config.md`](sys-config.md)。
 
-![护栏与可观测](assets/diagrams/diag-11-guards-observability.png)
+![护栏与可观测](assets/diagrams/diag-11-guards-observability.webp)
 
 ---
 
@@ -207,7 +201,7 @@ DeepStack 的立场是：
 
 | 层级 | 选型 | 说明 |
 | --- | --- | --- |
-| 语言 / 运行时 | Java 21 | 与当代 Spring 生态对齐 |
+| 语言 / 运行时 | Java 21 | 与当前 Spring 版本一致 |
 | 应用框架 | Spring Boot 4.1.x | 单体可跑、模块可嵌 |
 | 模型接入 | Spring AI 2.x | 按库表 `model_code` 建客户端，非写死 yml |
 | 图编排 | LangGraph4j 1.8.x | GRAPH 模式编译执行 |
@@ -225,7 +219,7 @@ DeepStack 的立场是：
 
 ## 10. 两种交付形态
 
-![两种交付形态](assets/diagrams/diag-12-delivery-modes.png)
+![两种交付形态](assets/diagrams/diag-12-delivery-modes.webp)
 
 嵌入步骤见系列文 [`articles/08-embed-with-starter.md`](articles/08-embed-with-starter.md)。本地十分钟路径见 [`articles/01-get-started-in-30-minutes.md`](articles/01-get-started-in-30-minutes.md)。
 
@@ -233,12 +227,7 @@ DeepStack 的立场是：
 
 ## 11. 边界与非目标
 
-| 做 | 不做（当前） |
-| --- | --- |
-| 单租户控制台 + Starter | 多租户 / 按租户 API Key 计费 |
-| Port 级扩展 | 强制替换宿主用户体系 |
-| GraphRAG 增强 | 用图替代向量主召回 |
-| 生产护栏 F1–F10 | 微服务拆分（按需以后再说） |
+当前只做单租户控制台加 Starter，不做多租户和按租户计费的 API Key。扩展停在 Port 层，不强制替换宿主的用户体系。GraphRAG 只做增强，不替代向量主召回。生产护栏做到 F1–F10；微服务拆分以后按需再说。
 
 ---
 

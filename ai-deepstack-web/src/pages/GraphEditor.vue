@@ -16,12 +16,17 @@
       </div>
       <div class="row-actions">
         <router-link class="btn-ghost" to="/agents" style="display: inline-flex">返回列表</router-link>
-        <button class="btn-ghost" type="button" :disabled="saving || publishing" @click="save">{{ saving ? '保存中…' : '保存草稿' }}</button>
-        <button class="btn-ghost" type="button" :disabled="saving || publishing" @click="publish">{{ publishing ? '发布中…' : '发布' }}</button>
-        <button class="btn-ghost" type="button" @click="toggleVersions">版本</button>
+        <button class="btn-ghost desktop-only" type="button" :disabled="saving || publishing" @click="save">{{ saving ? '保存中…' : '保存草稿' }}</button>
+        <button class="btn-ghost desktop-only" type="button" :disabled="saving || publishing" @click="publish">{{ publishing ? '发布中…' : '发布' }}</button>
+        <button class="btn-ghost desktop-only" type="button" @click="toggleVersions">版本</button>
         <button class="btn" type="button" @click="openTestDialog">试跑</button>
       </div>
     </header>
+
+    <!-- 手机端：画布可缩放平移查看，不做编辑 -->
+    <p v-if="isMobile" class="graph-readonly-hint">
+      手机端仅支持查看图结构：单指拖动平移、双指缩放。编辑节点、连线和发布请在桌面端进行。
+    </p>
 
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="okMsg" class="ok">{{ okMsg }}</p>
@@ -49,7 +54,7 @@
     </div>
 
     <div class="graph-studio">
-      <aside class="panel" style="padding: 0.85rem; overflow: auto">
+      <aside class="panel graph-palette" style="padding: 0.85rem; overflow: auto">
         <h3 style="margin: 0 0 0.6rem; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">
           节点库
         </h3>
@@ -85,10 +90,10 @@
           v-model:edges="edges"
           :node-types="flowNodeTypes"
           fit-view-on-init
-          :nodes-draggable="true"
-          :nodes-connectable="true"
+          :nodes-draggable="!isMobile"
+          :nodes-connectable="!isMobile"
           :elements-selectable="true"
-          :edges-updatable="true"
+          :edges-updatable="!isMobile"
           :pan-on-drag="true"
           :selection-key-code="'Shift'"
           :multi-selection-key-code="['Meta', 'Control']"
@@ -117,7 +122,7 @@
         </VueFlow>
       </div>
 
-      <aside class="panel" style="padding: 0.85rem; overflow: auto">
+      <aside class="panel graph-props" style="padding: 0.85rem; overflow: auto">
         <h3 style="margin: 0 0 0.6rem; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)">
           {{ selectionTitle }}
         </h3>
@@ -216,6 +221,10 @@ import { createNodeObject, displayTypeLabel, setEdgeCondition as applyEdgeCondit
 import { confirmDialog } from '../composables/useConfirm'
 import { useGraphPersistence } from '../composables/useGraphPersistence'
 import { useGraphTestRun } from '../composables/useGraphTestRun'
+import { useIsMobile } from '../composables/useIsMobile'
+
+/** 手机端画布只读：禁掉拖节点、拉连线、改边，只保留平移与缩放 */
+const isMobile = useIsMobile()
 
 const route = useRoute()
 const agentId = computed(() => route.params.id)

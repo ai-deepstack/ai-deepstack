@@ -86,6 +86,6 @@ Vite `5173`，`/api` 代理到 `8088`。
 
 ## 接下来
 
-- 理解 Agent 配置与图定义：[Agent 是一等公民](02-agent-as-first-class.md)  
+- 理解 Agent 配置与图定义：[Agent 是配置实体](02-agent-as-first-class.md)  
 - 运维向配置中心：[sys-config.md](../sys-config.md)  
 - 生产功能清单：[production-features.md](../production-features.md)

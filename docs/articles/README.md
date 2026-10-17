@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | 0 | 为什么还要再做一个 Java Agent 平台 | [00-why-java-agent-platform.md](00-why-java-agent-platform.md) | 选型、架构师 |
 | 1 | 半小时跑通对话与图编排 | [01-get-started-in-30-minutes.md](01-get-started-in-30-minutes.md) | 想先摸一手的人 |
-| 2 | Agent 是一等公民，不是一堆 Prompt | [02-agent-as-first-class.md](02-agent-as-first-class.md) | 业务建模 |
+| 2 | Agent 是配置实体，不是一段 Prompt | [02-agent-as-first-class.md](02-agent-as-first-class.md) | 业务建模 |
 | 3 | Port / SPI：模型、记忆、图谱可替换 | [03-port-spi-architecture.md](03-port-spi-architecture.md) | 要嵌进现有系统 |
 | 4 | 工具与 MCP：目录、连接、再绑定 | [04-tools-and-mcp.md](04-tools-and-mcp.md) | 接外部能力 |
 | 5 | 知识库与图谱增强检索 | [05-knowledge-and-graphrag.md](05-knowledge-and-graphrag.md) | RAG / 领域知识 |

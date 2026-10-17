@@ -38,13 +38,15 @@
           </thead>
           <tbody>
             <tr v-for="item in byGroup[activeGroup]" :key="item.configKey">
-              <td>
-                <div class="cfg-name">{{ item.configName || item.configKey }}</div>
-                <code class="cfg-key">{{ item.configKey }}</code>
+              <td data-label="配置名">
+                <span>
+                  <span class="cfg-name">{{ item.configName || item.configKey }}</span>
+                  <code class="cfg-key">{{ item.configKey }}</code>
+                </span>
               </td>
-              <td class="muted">{{ item.description || '—' }}</td>
-              <td><span class="src-tag" :data-src="item.source">{{ sourceLabel(item.source) }}</span></td>
-              <td>
+              <td class="muted" data-label="说明">{{ item.description || '—' }}</td>
+              <td data-label="来源"><span class="src-tag" :data-src="item.source">{{ sourceLabel(item.source) }}</span></td>
+              <td data-label="值">
                 <PropCheckbox
                   v-if="item.valueType === 'yes_no'"
                   :model-value="item.configValue === '1' || item.configValue === 1 ? '1' : '0'"
@@ -249,6 +251,7 @@ onMounted(load)
   width: 100%;
 }
 .cfg-name {
+  display: block;
   font-weight: 600;
   line-height: 1.3;
 }

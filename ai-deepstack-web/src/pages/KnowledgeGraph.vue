@@ -68,7 +68,7 @@
           v-model:edges="flowEdges"
           :node-types="nodeTypes"
           fit-view-on-init
-          :nodes-draggable="true"
+          :nodes-draggable="!isMobile"
           :nodes-connectable="false"
           :elements-selectable="true"
           :edges-updatable="false"
@@ -144,6 +144,10 @@ import { get } from '../api/http'
 import KnowledgeGraphNode from '../components/KnowledgeGraphNode.vue'
 import PropNumber from '../components/PropNumber.vue'
 import { forceLayout } from '../utils/kbForceLayout'
+import { useIsMobile } from '../composables/useIsMobile'
+
+/** 手机端画布只读：单指用于平移，节点不可拖动 */
+const isMobile = useIsMobile()
 
 const route = useRoute()
 const baseCode = computed(() => String(route.params.baseCode || ''))
@@ -464,5 +468,28 @@ onMounted(() => {
   .field-row {
     grid-template-columns: 1fr;
   }
+}
+/* 手机端。必须写在 scoped 里：scoped 选择器带 [data-v-x]，特异性高于
+   styles.css 末尾那一段全局媒体查询，全局块改不动这里的网格。 */
+@media (max-width: 768px) {
+  .kb-graph-page {
+    height: calc(100dvh - 5rem - env(safe-area-inset-top));
+  }
+  /* 图例信息量最低，收起；属性面板留成画布下方一行——
+     「展开邻居」是这一页唯一的交互，不能跟着一起藏。 */
+  .kb-legend { display: none; }
+  .kb-graph-studio {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(40dvh, 1fr) auto;
+  }
+  .kb-props {
+    max-height: 36dvh;
+    overflow: auto;
+  }
+  /* 工具栏竖排会吃掉大半屏，两列更省高度 */
+  .field-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .field-action { grid-column: 1 / -1; }
 }
 </style>

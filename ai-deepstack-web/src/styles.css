@@ -507,6 +507,9 @@ label {
 .table tr { transition: background 0.15s ease; }
 .table tbody tr:hover { background: rgba(61, 224, 197, 0.05); }
 
+/* 告警详情列：桌面端限宽防止一行撑太宽，手机上必须放开（否则卡片被压到 18rem 内） */
+.alert-detail { max-width: 18rem; white-space: normal; }
+
 .muted { color: var(--muted); }
 .error {
   color: var(--danger);
@@ -803,6 +806,12 @@ label {
 }
 @media (max-width: 980px) {
   .chat-layout { grid-template-columns: 1fr; }
+}
+/* 对话主区：原先写在模板的内联样式里，挪到这里才能在手机端改高度 */
+.chat-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 560px;
 }
 .chat-stream {
   display: flex;
@@ -2252,4 +2261,381 @@ body:after {
     flex-direction:column;
     align-items:flex-start;
   }
+}
+
+/* ==========================================================================
+   手机端适配（≤768px）
+
+   整段放在文件末尾：与前面 1080 / 980 / 960 / 900 / 720 的断点特异性相同，
+   靠源序覆盖，所以不要把它挪到文件中间。
+
+   注意：<style scoped> 编译后是 .cls[data-v-xxx]（特异性 0,2,0），高于这里的
+   全局类选择器，且 Vite 在 styles.css 之后注入。所以带 scoped 样式的页面要
+   就地改——本轮改了 Login.vue（.login-links 写死 grid-column:2）、
+   KnowledgeGraph.vue（画布网格）、CoverImageUpload.vue、AgentTryDialog.vue。
+   ========================================================================== */
+
+/* 手机端专用元素：桌面端隐藏 */
+.mobile-topbar,
+.sidebar-mask,
+.nav-close,
+.chat-side-toggle { display: none; }
+
+@media (max-width: 768px) {
+
+  /* ---------- 1. 外壳：顶栏 + 内容两行，侧栏改为抽屉 ---------- */
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: 100dvh;
+  }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.9rem;
+    padding-top: calc(0.55rem + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--line);
+    background: rgba(7, 12, 22, 0.94);
+    backdrop-filter: blur(14px);
+    z-index: 30;
+  }
+  .mobile-title {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-brand);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-brand-icon {
+    display: block;
+    border-radius: 0.4rem;
+    flex-shrink: 0;
+  }
+
+  .nav-toggle {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: rgba(14, 22, 38, 0.65);
+    padding: 0;
+  }
+  .nav-toggle span {
+    display: block;
+    width: 1.05rem;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--ink-soft);
+  }
+  .nav-toggle:active { background: var(--cyan-soft); }
+
+  /* 侧栏滑出：桌面端的 rise 动画带 both，会把 transform 锁在 translateY(0)，
+     不 animation:none 的话下面的 translateX(-100%) 根本不生效。 */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 60;
+    width: min(82vw, 300px);
+    height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation: none;
+    border-right: 1px solid var(--line-strong);
+    border-bottom: none;
+    box-shadow: 20px 0 60px rgba(0, 0, 0, 0.5);
+    /* 10 条导航 + 外链 + 退出按钮在 390×844 上装不下，不放开纵向滚动会点不到「退出」 */
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-top: calc(1.15rem + env(safe-area-inset-top));
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+  .shell.nav-open .sidebar { transform: translateX(0); }
+
+  .sidebar-mask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(2, 6, 14, 0.62);
+    backdrop-filter: blur(4px);
+    animation: fade 0.2s ease both;
+  }
+
+  .nav-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    width: 2.2rem;
+    height: 2.2rem;
+    flex-shrink: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    background: rgba(14, 22, 38, 0.65);
+    color: var(--ink-soft);
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0;
+  }
+
+  /* 覆盖 1080px 断点把导航摊成横向换行的做法 */
+  .nav { flex-direction: column; flex-wrap: nowrap; }
+
+  /* ---------- 2. 主区 ---------- */
+  /* 桌面端的 rise 动画留了个永久 transform，会让 .main 成为 position:fixed 的
+     包含块，抽屉/弹窗就会相对 .main 定位而错位。 */
+  .main {
+    animation: none;
+    padding: 0.85rem 0.85rem calc(1rem + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+  }
+  .main:has(.graph-page) {
+    padding: 0.7rem 0.7rem calc(0.7rem + env(safe-area-inset-bottom));
+  }
+
+  /* ---------- 3. 页头：改成上下堆叠 ---------- */
+  .page-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.7rem;
+    margin-bottom: 0.9rem;
+  }
+  .page-head h1 { font-size: 1.5rem; }
+  .page-head p { font-size: 0.85rem; margin-top: 0.35rem; }
+  .page-head .row-actions { gap: 0.4rem; }
+  .page-head .row-actions > * { flex: 1 1 auto; }
+  .graph-page .page-head { align-items: stretch; }
+
+  /* ---------- 4. 触控与输入 ---------- */
+  /* iOS 上 font-size < 16px 的输入框聚焦会触发页面缩放。
+     注意 .prop-ctl 与 .graph-page input 特异性更高，必须单独列出来。 */
+  input, select, textarea,
+  .prop-ctl,
+  .graph-page input, .graph-page select, .graph-page textarea {
+    font-size: 16px;
+  }
+  button.btn, .btn,
+  button.btn-ghost, .btn-ghost { min-height: 2.6rem; }
+  .row-actions .btn-ghost,
+  .list-pager .btn-ghost { min-height: 2.4rem; }
+
+  /* ---------- 5. 表格 → 卡片 ---------- */
+  /* 排除两类：.compact 是洞察面板里的两列小表，.table-plain 是显式声明保持
+     表格的（日期/调用/失败这种窄数字表，卡片化反而更难读）。
+     thead / tbody / tr / td 必须一起 display:block：只改 tr/td 的话浏览器会
+     补出匿名表格盒，仍然按表格渲染。 */
+  .table:not(.compact):not(.table-plain) thead { display: none; }
+  .table:not(.compact):not(.table-plain),
+  .table:not(.compact):not(.table-plain) tbody,
+  .table:not(.compact):not(.table-plain) tr,
+  .table:not(.compact):not(.table-plain) td { display: block; width: 100%; }
+  .table-wrap { overflow: visible; overflow-x: hidden; }
+
+  .table:not(.compact):not(.table-plain) tr {
+    margin-bottom: 0.65rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: rgba(8, 14, 26, 0.5);
+  }
+  .table:not(.compact):not(.table-plain) tbody tr:hover { background: rgba(8, 14, 26, 0.5); }
+
+  .table:not(.compact):not(.table-plain) td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.88rem;
+    text-align: right;
+    min-width: 0;
+  }
+  .table:not(.compact):not(.table-plain) td:last-child { border-bottom: none; }
+  .table:not(.compact):not(.table-plain) td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: left;
+  }
+  .table:not(.compact):not(.table-plain) td:not([data-label])::before { content: none; }
+  .table:not(.compact):not(.table-plain) td > * { min-width: 0; }
+  .table:not(.compact):not(.table-plain) td code { word-break: break-all; }
+
+  /* 操作列：整行按钮，不带标签。
+     必须写成 .table td.row-actions，否则被上面的 .table td（0,1,1）压过
+     .row-actions（0,1,0）的 display:flex。 */
+  .table:not(.compact):not(.table-plain) td.row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    padding: 0.7rem 0 0.35rem;
+    border-top: 1px solid var(--line);
+    border-bottom: none;
+  }
+  .table:not(.compact):not(.table-plain) td.row-actions::before { content: none; }
+  .table:not(.compact):not(.table-plain) td.row-actions > * { flex: 1 1 auto; }
+
+  /* ---------- 6. 抽屉与弹窗 ---------- */
+  .drawer {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    padding: 1.1rem 1rem calc(1.2rem + env(safe-area-inset-bottom));
+    padding-top: calc(1.1rem + env(safe-area-inset-top));
+  }
+  .drawer h2 { font-size: 1.35rem; }
+  .drawer-actions {
+    gap: 0.45rem;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .drawer-actions > * { flex: 1 1 auto; }
+
+  .modal-mask, .confirm-mask { padding: 0.85rem; }
+  .modal-card {
+    width: 100%;
+    max-height: 86dvh;
+    padding: 1rem;
+  }
+  .confirm-card { width: 100%; }
+  .confirm-actions {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+  .confirm-actions > * { width: 100%; }
+
+  /* 聊天流里的确认卡片：标签/值两列在手机上太挤 */
+  .confirm-field { grid-template-columns: 1fr; gap: 0.1rem; }
+
+  /* ---------- 7. 试用台（Playground） ---------- */
+  /* 聊天页要的是「消息区内部滚动 + 输入框常驻底部」，靠 sticky 做不到：
+     .chat-main 比视口高时输入框还在折叠线以下。改成整列 flex 撑满主区。
+     注意模板根节点是个普通 div，必须自己带上 flex 才撑得开。 */
+  .main:has(.chat-page) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .chat-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .chat-page > .page-head { flex-shrink: 0; }
+
+  .chat-side-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    width: 100%;
+    margin-bottom: 0.6rem;
+    padding: 0.6rem 0.85rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: rgba(14, 22, 38, 0.65);
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+  }
+  .chat-layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 0.6rem;
+  }
+  .chat-layout:not(.side-open) .chat-side { display: none; }
+  .chat-side {
+    flex-shrink: 0;
+    max-height: 45dvh;
+    overflow: auto;
+  }
+  .chat-main { flex: 1; min-height: 0; }
+  .chat-stream {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+  .composer {
+    flex-shrink: 0;
+    padding-bottom: calc(0.3rem + env(safe-area-inset-bottom));
+  }
+  .msg { max-width: 100%; }
+
+  /* ---------- 8. VueFlow 画布：手机端只读 ---------- */
+  /* 没有这条，浏览器会把单指拖动当页面滚动、双指当页面缩放，画布完全不可用。
+     vue-flow 自带样式里没设 touch-action，d3-zoom 也没设。 */
+  .vue-flow__viewport,
+  .vue-flow__pane { touch-action: none; }
+
+  .graph-studio,
+  .kb-graph-studio {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+  }
+  /* 手机端只读：节点库和属性面板收起，画布占满。
+     隐藏后网格只剩一个子项，落在 1fr 那一行，画布才拿得到高度。
+     知识图谱页不在此列——它的属性面板里有「展开邻居」，改为收在画布下方，
+     见 KnowledgeGraph.vue 的 scoped 块。 */
+  .graph-palette,
+  .graph-props { display: none; }
+  .graph-canvas {
+    height: 100%;
+    min-height: 60dvh;
+  }
+  .kb-graph-studio .graph-canvas { min-height: 40dvh; }
+  .graph-readonly-hint {
+    flex-shrink: 0;
+    margin: 0 0 0.55rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: rgba(8, 14, 26, 0.5);
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+  /* 画布上的小圆点只有 6px，手指点不中，放大到可点范围 */
+  .vue-flow__handle {
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    min-height: 14px !important;
+  }
+  /* 小地图在 375px 宽上要占掉 40% 画布，手机上不划算 */
+  .vue-flow__minimap { display: none; }
+  /* 缩放按钮默认太小，点不中 */
+  .vue-flow__controls-button {
+    width: 34px;
+    height: 34px;
+  }
+  .vue-flow__controls-button svg { width: 16px; height: 16px; }
+
+  /* ---------- 9. 杂项 ---------- */
+  .desktop-only { display: none !important; }
+  .alert-detail { max-width: none; }
+  .kpi-strip { gap: 0.5rem; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .login-stage { padding: 1.5rem 1.15rem; padding-top: 2.5rem; }
+  .login-card h2 { font-size: 1.55rem; }
 }

@@ -37,7 +37,7 @@ org.deepstack.ai
 | `MemoryPort` | `memory-pg` |
 
 - 业务键：`modelCode` / `toolCode` / `baseCode`；`CardPort.afterEmitted(EmittedCard)`
-- 能力模块实现 Port；`runtime` 提供 `@ConditionalOnMissingBean` 占位实现——除可选能力（`MemoryPort`/`HitlPort` 用 `available()` 标记不可用）外，占位实现一律「调用即失败」，避免能力没接上却被当成空结果
+- 能力模块实现 Port；`runtime` 提供 `@ConditionalOnMissingBean` 占位实现：除可选能力（`MemoryPort`/`HitlPort` 用 `available()` 标记不可用）外，占位实现一律「调用即失败」，避免能力没接上却被当成空结果
 - 编排 / HITL / 试跑依赖 `GraphRuntime`（含在跑数与编译缓存数），不直接依赖 `WorkflowCompiler` 实现类
 - 请求态在 `RunContext`；`AgentNodeContext` 仅聚合 Port
 

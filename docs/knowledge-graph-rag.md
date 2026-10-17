@@ -142,7 +142,7 @@
 | 超时 | 单路 SQL / 单次 expand 可配；多库总超时 = `timeout-ms × ceil(库数 / 并发)`，共用一个 deadline，超时该库空结果，不拖垮整次对话 |
 | 失败隔离 | 单路异常 → 该路空列表 + warn；另一路仍参与 RRF；expand 单种子失败跳过 |
 
-查询句 **embedding 必须在阶段 A 的向量路之前完成**（串行前置）；全文路不依赖 embedding，可与 embedding 并行启动，但向量 SQL 要等 embed 结果——更干净的写法是：
+查询句 **embedding 必须在阶段 A 的向量路之前完成**（串行前置）；全文路不依赖 embedding，可与 embedding 并行启动，但向量 SQL 要等 embed 结果。更干净的写法是：
 
 ```
 embedFuture = async embed(query)          // 可与「准备」重叠

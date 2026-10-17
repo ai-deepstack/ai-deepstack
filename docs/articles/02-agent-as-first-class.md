@@ -1,4 +1,4 @@
-# Agent 是一等公民，不是一堆 Prompt
+# Agent 是配置实体，不是一段 Prompt
 
 很多项目把「Agent」等同于一段 system prompt + 几个 tool 名字。DeepStack 里，Agent 是落库的配置实体：模型、编排模式、工具绑定、知识库、意图、图定义都挂在同一个 `agentCode` 上。
 
@@ -31,7 +31,7 @@
 
 对话卡片（card）配合 HITL：图中途需要人点同意 / 改参数时，前端渲染卡片，后端写 checkpoint，超时策略见 F4。
 
-## 为什么要「一等公民」
+## 为什么做成配置实体
 
 1. **权限与配额按 Agent 打** — 全站并发之外，可按 agent / 登录用户限 QPS、日 token（F2）。  
 2. **轨迹可归因** — 运行记录带 agent、节点、阶段，可观测与告警才有挂点（见 [agent-observability.md](../agent-observability.md)）。  

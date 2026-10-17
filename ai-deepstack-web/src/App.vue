@@ -5,16 +5,28 @@
   </div>
 
   <!-- 管理后台 -->
-  <div v-else class="shell">
+  <div v-else class="shell" :class="{ 'nav-open': navOpen }">
+    <!-- 手机端顶栏：桌面端由 CSS 隐藏 -->
+    <header class="mobile-topbar">
+      <button class="nav-toggle" type="button" aria-label="打开导航" @click="navOpen = true">
+        <span /><span /><span />
+      </button>
+      <div class="mobile-title">{{ pageTitle }}</div>
+      <img class="mobile-brand-icon" src="/favicon.svg" alt="" width="26" height="26" />
+    </header>
+
+    <div v-if="navOpen" class="sidebar-mask" @click="navOpen = false" />
+
     <aside class="sidebar">
       <div class="brand-block">
         <div class="brand-row">
           <img class="brand-icon" src="/favicon.svg" alt="" width="28" height="28" />
           <div class="brand-mark">AI <em>DeepStack</em></div>
+          <button class="nav-close" type="button" aria-label="关闭导航" @click="navOpen = false">×</button>
         </div>
         <div class="brand-sub">管理后台</div>
       </div>
-      <nav class="nav">
+      <nav class="nav" @click="navOpen = false">
         <router-link to="/playground">试用台</router-link>
         <router-link to="/runs">运行记录</router-link>
         <router-link to="/alerts">告警</router-link>
@@ -46,7 +58,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { clearAuth, getDisplayName, getToken } from './api/http'
 import ConfirmDialog from './components/ConfirmDialog.vue'
@@ -57,6 +69,12 @@ const route = useRoute()
 const router = useRouter()
 const isLoginPage = computed(() => route.path === '/login')
 const displayName = computed(() => getDisplayName() || '用户')
+
+const navOpen = ref(false)
+const pageTitle = computed(() => route.meta?.title || 'AI DeepStack')
+
+// 手机上点导航后收起抽屉
+watch(() => route.fullPath, () => { navOpen.value = false })
 
 async function logout() {
   try {
