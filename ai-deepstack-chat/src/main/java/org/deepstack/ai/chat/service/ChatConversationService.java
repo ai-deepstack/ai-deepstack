@@ -71,4 +71,21 @@ public interface ChatConversationService extends IService<ChatConversation> {
      * @return 会话记录
      */
     ChatConversation requireOwned(String conversationId, String userId);
+
+    /**
+     * 重命名会话（校验归属）。
+     *
+     * @param conversationId 业务会话 ID
+     * @param userId         当前用户 ID
+     * @param title          新标题
+     */
+    void renameOwned(String conversationId, String userId, String title);
+
+    /**
+     * 删除会话及其历史消息（校验归属）。
+     *
+     * @param conversationId 业务会话 ID
+     * @param userId         当前用户 ID
+     */
+    void deleteOwned(String conversationId, String userId);
 }

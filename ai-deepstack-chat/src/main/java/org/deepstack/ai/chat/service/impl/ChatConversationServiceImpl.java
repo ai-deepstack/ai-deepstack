@@ -3,6 +3,7 @@ package org.deepstack.ai.chat.service.impl;
 import org.deepstack.ai.chat.model.entity.ChatConversation;
 import org.deepstack.ai.chat.mapper.ChatConversationMapper;
 import org.deepstack.ai.chat.service.ChatConversationService;
+import org.deepstack.ai.chat.service.memory.ChatMemoryService;
 import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
 import org.deepstack.ai.kernel.exception.BusinessException;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -10,8 +11,10 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -23,7 +26,10 @@ import java.util.Objects;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMapper, ChatConversation> implements ChatConversationService {
+
+    private final ChatMemoryService chatMemoryService;
 
     /**
      * 按业务会话 ID 查询未删除会话。
@@ -186,5 +192,44 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED.getCode(), "无权访问该会话");
         }
         return conversation;
+    }
+
+    /**
+     * 重命名会话。
+     *
+     * @param conversationId 业务会话 ID
+     * @param userId         当前用户 ID
+     * @param title          新标题
+     */
+    @Override
+    public void renameOwned(String conversationId, String userId, String title) {
+        if (!StringUtils.hasText(title)) {
+            throw new BusinessException(CommonErrorCode.INVALID_PARAM.getCode(), "标题不能为空");
+        }
+        ChatConversation conversation = requireOwned(conversationId, userId);
+        String normalized = title.trim();
+        if (normalized.length() > 256) {
+            normalized = normalized.substring(0, 256);
+        }
+        baseMapper.update(null,
+                new LambdaUpdateWrapper<ChatConversation>()
+                        .eq(ChatConversation::getId, conversation.getId())
+                        .set(ChatConversation::getTitle, normalized));
+        log.info("会话已重命名: conversationId={}, title={}", conversationId, normalized);
+    }
+
+    /**
+     * 删除会话及其历史消息。
+     *
+     * @param conversationId 业务会话 ID
+     * @param userId         当前用户 ID
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteOwned(String conversationId, String userId) {
+        ChatConversation conversation = requireOwned(conversationId, userId);
+        baseMapper.deleteById(conversation.getId());
+        chatMemoryService.deleteByConversationId(conversationId);
+        log.info("会话已删除: conversationId={}, userId={}", conversationId, userId);
     }
 }

@@ -35,17 +35,56 @@
           <span class="muted">{{ currentAgent?.label || '—' }}</span>
         </div>
         <div class="conv-list" v-if="conversations.length">
-          <button
+          <div
             v-for="c in conversations"
             :key="c.conversationId"
-            type="button"
-            class="conv-item"
+            class="conv-row"
             :class="{ active: c.conversationId === conversationId }"
-            @click="openConversation(c)"
           >
-            <span class="conv-title">{{ c.title || shortId(c.conversationId) }}</span>
-            <span class="conv-meta">{{ c.messageCount ?? 0 }} 轮 · {{ formatTime(c.lastMessageAt) }}</span>
-          </button>
+            <template v-if="renamingId === c.conversationId">
+              <input
+                v-model="renameDraft"
+                class="conv-rename"
+                maxlength="256"
+                @keyup.enter="saveRename(c)"
+                @keyup.esc="cancelRename"
+              />
+              <div class="conv-row-actions">
+                <button class="conv-mini" type="button" title="保存" aria-label="保存" @click.stop="saveRename(c)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </button>
+                <button class="conv-mini" type="button" title="取消" aria-label="取消" @click.stop="cancelRename">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <button class="conv-item" type="button" @click="openConversation(c)">
+                <span class="conv-title">{{ c.title || shortId(c.conversationId) }}</span>
+                <span class="conv-meta">{{ c.messageCount ?? 0 }} 轮 · {{ formatTime(c.lastMessageAt) }}</span>
+              </button>
+              <div class="conv-row-actions">
+                <button class="conv-mini" type="button" title="重命名" aria-label="重命名" @click.stop="startRename(c)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </button>
+                <button class="conv-mini danger" type="button" title="删除" aria-label="删除" @click.stop="deleteConversation(c)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
         </div>
         <p v-else class="muted conv-empty">
           {{ convLoading ? '加载中…' : '该 Agent 暂无会话' }}
@@ -168,8 +207,9 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { get, post } from '../api/http'
+import { get, post, put, del } from '../api/http'
 import { streamSse, tryParseJson } from '../api/sse'
+import { confirmDialog } from '../composables/useConfirm'
 import PropSelect from '../components/PropSelect.vue'
 import GenericConfirmCard from '../components/GenericConfirmCard.vue'
 import {
@@ -201,6 +241,8 @@ const convPageSize = 10
 const convTotal = ref(0)
 const convTotalPage = ref(0)
 const convLoading = ref(false)
+const renamingId = ref('')
+const renameDraft = ref('')
 let abortCtrl = null
 
 const currentAgent = computed(() => agents.value.find((a) => a.value === agentCode.value))
@@ -280,6 +322,52 @@ async function openConversation(c) {
       time: m.createTime
     }))
     await scrollBottom()
+  } catch (e) {
+    error.value = e.message
+  }
+}
+
+/** 重命名：行内编辑 */
+function startRename(c) {
+  renamingId.value = c.conversationId
+  renameDraft.value = c.title || ''
+}
+
+function cancelRename() {
+  renamingId.value = ''
+  renameDraft.value = ''
+}
+
+async function saveRename(c) {
+  const title = renameDraft.value.trim()
+  if (!title) {
+    error.value = '标题不能为空'
+    return
+  }
+  try {
+    await put(`/api/chat/conversations/${encodeURIComponent(c.conversationId)}`, { title })
+    c.title = title
+    cancelRename()
+  } catch (e) {
+    error.value = e.message
+  }
+}
+
+/** 删除会话（含历史消息），需二次确认 */
+async function deleteConversation(c) {
+  const ok = await confirmDialog({
+    title: '删除会话',
+    message: '删除后该会话的历史消息也会被清除，且不可恢复。',
+    confirmText: '删除'
+  })
+  if (!ok) return
+  try {
+    await del(`/api/chat/conversations/${encodeURIComponent(c.conversationId)}`)
+    if (conversationId.value === c.conversationId) resetSession()
+    const page = conversations.value.length === 1 && convPageNum.value > 1
+      ? convPageNum.value - 1
+      : convPageNum.value
+    await loadConversations(page)
   } catch (e) {
     error.value = e.message
   }
@@ -536,16 +624,33 @@ onUnmounted(abortStream)
   text-transform: uppercase;
   color: var(--muted);
 }
+.chat-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .conv-list {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  max-height: 240px;
+  flex: 1;
+  min-height: 80px;
+  max-height: none;
   overflow: auto;
+}
+.conv-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.3rem;
+}
+.conv-row.active .conv-item {
+  background: var(--cyan-soft);
+  border-color: var(--cyan-bright);
 }
 .conv-item {
   display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   text-align: left;
   padding: 0.5rem 0.6rem;
   border-radius: 8px;
@@ -557,9 +662,62 @@ onUnmounted(abortStream)
 .conv-item:hover {
   border-color: var(--cyan-bright);
 }
-.conv-item.active {
-  background: var(--cyan-soft);
+.conv-row-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.conv-row:hover .conv-row-actions,
+.conv-row:focus-within .conv-row-actions {
+  opacity: 1;
+}
+.conv-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.conv-mini svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.conv-mini:hover {
+  color: var(--ink);
   border-color: var(--cyan-bright);
+}
+.conv-mini.danger:hover {
+  color: #ff9b9b;
+  border-color: rgba(255, 107, 107, 0.5);
+}
+.conv-rename {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--cyan-bright);
+  background: rgba(8, 14, 26, 0.6);
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+@media (max-width: 980px) {
+  .conv-row-actions {
+    opacity: 1;
+  }
 }
 .conv-title {
   display: block;

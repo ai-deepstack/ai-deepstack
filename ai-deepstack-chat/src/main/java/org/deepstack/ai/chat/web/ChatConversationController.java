@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.deepstack.ai.chat.model.dto.request.ChatConversationPageRequest;
+import org.deepstack.ai.chat.model.dto.request.ChatConversationRenameRequest;
 import org.deepstack.ai.chat.model.dto.response.ChatConversationResponse;
 import org.deepstack.ai.chat.model.dto.response.ChatMessageResponse;
 import org.deepstack.ai.chat.model.entity.ChatConversation;
@@ -17,8 +18,11 @@ import org.deepstack.ai.kernel.exception.BusinessException;
 import org.deepstack.ai.kernel.model.AppUserInfo;
 import org.deepstack.ai.kernel.model.PageInfo;
 import org.deepstack.ai.kernel.model.Response;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -75,6 +79,38 @@ public class ChatConversationController {
                 .map(this::toMessageResponse)
                 .toList();
         return Response.success(messages);
+    }
+
+    /**
+     * 重命名会话。
+     *
+     * @param conversationId 业务会话 ID
+     * @param req            新标题
+     * @param loginUser      当前登录用户
+     */
+    @PutMapping("/{conversationId}")
+    public Response<Void> rename(@PathVariable("conversationId") String conversationId,
+                                 @RequestBody ChatConversationRenameRequest req,
+                                 @LoginUser AppUserInfo loginUser) {
+        String userId = requireUserId(loginUser);
+        log.info("重命名会话: conversationId={}, userId={}", conversationId, userId);
+        chatConversationService.renameOwned(conversationId, userId, req != null ? req.getTitle() : null);
+        return Response.success();
+    }
+
+    /**
+     * 删除会话及其历史消息。
+     *
+     * @param conversationId 业务会话 ID
+     * @param loginUser      当前登录用户
+     */
+    @DeleteMapping("/{conversationId}")
+    public Response<Void> delete(@PathVariable("conversationId") String conversationId,
+                                 @LoginUser AppUserInfo loginUser) {
+        String userId = requireUserId(loginUser);
+        log.info("删除会话: conversationId={}, userId={}", conversationId, userId);
+        chatConversationService.deleteOwned(conversationId, userId);
+        return Response.success();
     }
 
     /** 当前登录用户 ID；未登录直接拒绝。 */
