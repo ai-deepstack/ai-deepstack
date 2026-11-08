@@ -115,6 +115,28 @@
               />
             </div>
           </div>
+          <div class="grid-2">
+            <div class="field">
+              <label>追踪模式</label>
+              <PropSelect
+                v-model="form.traceMode"
+                :options="traceModeOptions"
+                placeholder="选择追踪模式"
+              />
+            </div>
+            <div class="field">
+              <label>流式进度</label>
+              <PropCheckbox
+                v-model="form.streamProgress"
+                :true-value="1"
+                :false-value="0"
+                label="推送节点进度与逐 token 输出"
+              />
+            </div>
+          </div>
+          <p class="muted" style="margin: 0 0 0.8rem; font-size: 0.78rem">
+            图编排下需「追踪模式 = 流式」且开启「流式进度」，才会逐 token 返回。
+          </p>
           <div class="field">
             <label>封面图</label>
             <CoverImageUpload v-model="form.coverUrl" />
@@ -191,7 +213,14 @@ import PropCheckboxGroup from '../components/PropCheckboxGroup.vue'
 import PropNumber from '../components/PropNumber.vue'
 import PropSelect from '../components/PropSelect.vue'
 import { usePageList } from '../composables/usePageList'
-import { EnabledStatus, ModelType, OrchestrateMode, orchestrateOptions } from '../constants/enums'
+import {
+  EnabledStatus,
+  ModelType,
+  OrchestrateMode,
+  orchestrateOptions,
+  TraceMode,
+  traceModeOptions
+} from '../constants/enums'
 import { asId, sameId } from '../utils/ids'
 
 const DEFAULT_COVER = '/agent-cover-default.svg'
@@ -244,6 +273,8 @@ const form = reactive({
   modelCode: null,
   systemPrompt: 'You are a helpful assistant.',
   orchestrateMode: OrchestrateMode.CHAT,
+  traceMode: TraceMode.STREAM,
+  streamProgress: 1,
   coverUrl: '',
   enabled: EnabledStatus.ENABLED,
   quotaQps: null,
@@ -323,6 +354,8 @@ function openCreate() {
     modelCode: models.value[0]?.value ?? null,
     systemPrompt: 'You are a helpful assistant.',
     orchestrateMode: OrchestrateMode.CHAT,
+    traceMode: TraceMode.STREAM,
+    streamProgress: 1,
     coverUrl: '',
     enabled: EnabledStatus.ENABLED,
     quotaQps: null,
@@ -346,6 +379,8 @@ async function openEdit(item) {
     modelCode: item.modelCode,
     systemPrompt: item.systemPrompt || '',
     orchestrateMode: item.orchestrateMode ?? OrchestrateMode.CHAT,
+    traceMode: item.traceMode ?? TraceMode.STREAM,
+    streamProgress: item.streamProgress ?? 1,
     coverUrl: item.coverUrl || '',
     enabled: item.enabled,
     quotaQps: item.quotaQps ?? null,
@@ -377,6 +412,8 @@ async function openCopy(item) {
     modelCode: item.modelCode,
     systemPrompt: item.systemPrompt || '',
     orchestrateMode: item.orchestrateMode ?? OrchestrateMode.CHAT,
+    traceMode: item.traceMode ?? TraceMode.STREAM,
+    streamProgress: item.streamProgress ?? 1,
     coverUrl: item.coverUrl || '',
     enabled: EnabledStatus.DISABLED,
     quotaQps: item.quotaQps ?? null,
@@ -412,6 +449,8 @@ async function save() {
       modelCode: form.modelCode,
       systemPrompt: form.systemPrompt,
       orchestrateMode: form.orchestrateMode,
+      traceMode: form.traceMode,
+      streamProgress: form.streamProgress,
       enabled: form.enabled,
       coverUrl: (form.coverUrl || '').trim(),
       quotaQps: form.quotaQps || 0,

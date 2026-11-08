@@ -69,10 +69,11 @@ public class AiAgentCreateRequest implements Serializable {
 
     private List<String> knowledgeBaseCodes;
 
-    /** 追踪模式码：见 TraceModeEnum，默认记录 */
-    private Integer traceMode = 1;
+    /** 追踪模式码：见 TraceModeEnum，默认流式（GRAPH 模式开箱即用流式返回） */
+    private Integer traceMode = 2;
 
-    private Integer streamProgress = YesNo.NO.getCode();
+    /** 是否推送节点进度；默认开启，与 STREAM 配合才会逐 token 返回 */
+    private Integer streamProgress = YesNo.YES.getCode();
 
     /** 封面图 URL */
     @Size(max = 512, message = "封面图 URL 长度不能超过 512")

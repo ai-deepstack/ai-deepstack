@@ -36,6 +36,10 @@
 | `RECORD` | 节点结果写入 state / 响应的 `nodeExecutions`（input/output 摘要、durationMs、status） |
 | `STREAM` | RECORD + SSE 推送节点进度（`streamProgress`） |
 
+> 只有 `trace_mode=STREAM` 且 `stream_progress=1` 才会进入流式执行；否则整图同步执行，
+> 只在结束时返回一条 `WORKFLOW_COMPLETE`（前端表现为一次性返回）。新建 Agent 默认即
+> `STREAM` + 开启流式进度，控制台 Agent 配置里可改。
+
 `WorkflowStreamEvent` 事件类型：
 
 | eventType | 含义 |

@@ -94,8 +94,8 @@ CREATE TABLE IF NOT EXISTS deepstack.ai_agent (
     quota_concurrency       INT,
     quota_daily_tokens      INT,
     hitl_timeout_minutes    INT,
-    trace_mode              SMALLINT     DEFAULT 1,
-    stream_progress         SMALLINT     DEFAULT 0,
+    trace_mode              SMALLINT     DEFAULT 2,
+    stream_progress         SMALLINT     DEFAULT 1,
     cover_url               VARCHAR(512),
     is_del          SMALLINT     NOT NULL DEFAULT 0,
     creator_id              BIGINT,
@@ -1075,7 +1075,7 @@ SELECT
     m.model_code,
     0.70, 2048, 0.90, 20, 1,
     0, 1, 0, 0,
-    0, NULL, 1, 1, 0,
+    0, NULL, 1, 2, 1,
     'system', NOW(), NOW()
 FROM ai_model m
 WHERE m.model_code = 'demo-openai-chat'
@@ -1125,7 +1125,7 @@ SELECT
       "variables": {}
     }'::jsonb,
     1,
-    1, 1,
+    2, 1,
     'system', NOW(), NOW()
 FROM ai_model m
 WHERE m.model_code = 'demo-openai-chat'

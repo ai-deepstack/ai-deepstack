@@ -190,8 +190,8 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgent> impl
         }
         entity.setTraceMode(req.getTraceMode() != null
                 ? req.getTraceMode()
-                : org.deepstack.ai.kernel.enums.agent.TraceModeEnum.RECORD.getCode());
-        entity.setStreamProgress(req.getStreamProgress() != null ? req.getStreamProgress() : YesNo.NO.getCode());
+                : org.deepstack.ai.kernel.enums.agent.TraceModeEnum.STREAM.getCode());
+        entity.setStreamProgress(req.getStreamProgress() != null ? req.getStreamProgress() : YesNo.YES.getCode());
         entity.setCoverUrl(StringUtils.hasText(req.getCoverUrl()) ? req.getCoverUrl().trim() : null);
         entity.setQuotaQps(positiveOrNull(req.getQuotaQps()));
         entity.setQuotaConcurrency(positiveOrNull(req.getQuotaConcurrency()));

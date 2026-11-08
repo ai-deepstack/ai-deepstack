@@ -92,6 +92,12 @@ export const orchestrateOptions = [
   { value: OrchestrateMode.GRAPH, label: 'GRAPH' }
 ]
 
+export const traceModeOptions = [
+  { value: TraceMode.NONE, label: '关闭' },
+  { value: TraceMode.RECORD, label: '记录' },
+  { value: TraceMode.STREAM, label: '流式' }
+]
+
 export const transportOptions = [
   { value: McpTransport.SSE, label: 'SSE' },
   { value: McpTransport.STDIO, label: 'STDIO' }
