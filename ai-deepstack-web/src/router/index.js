@@ -6,6 +6,7 @@ import Models from '../pages/Models.vue'
 import Tools from '../pages/Tools.vue'
 import McpConnections from '../pages/McpConnections.vue'
 import Knowledge from '../pages/Knowledge.vue'
+import KnowledgeDocuments from '../pages/KnowledgeDocuments.vue'
 import KnowledgeGraph from '../pages/KnowledgeGraph.vue'
 import Intents from '../pages/Intents.vue'
 import Playground from '../pages/Playground.vue'
@@ -33,6 +34,7 @@ const router = createRouter({
     { path: '/mcp', component: McpConnections, meta: { title: 'MCP' } },
     { path: '/intents', component: Intents, meta: { title: '意图' } },
     { path: '/knowledge', component: Knowledge, meta: { title: '知识库' } },
+    { path: '/knowledge/:id/docs', component: KnowledgeDocuments, meta: { title: '知识库文档' } },
     { path: '/knowledge/:baseCode/graph', component: KnowledgeGraph, meta: { title: '知识图谱' } },
     { path: '/settings', component: Settings, meta: { title: '系统设置' } }
   ]
