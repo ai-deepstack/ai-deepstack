@@ -64,4 +64,8 @@ public class KnowledgeChunk implements Serializable {
     /** 全文检索 tsvector（生成列，exist=false） */
     @TableField(exist = false)
     private String contentTsv;
+
+    /** 是否已生成向量（分片列表查询时由 SQL 计算，exist=false） */
+    @TableField(exist = false)
+    private Integer hasEmbedding;
 }

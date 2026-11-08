@@ -2,6 +2,7 @@ package org.deepstack.ai.knowledge.mapper;
 
 import org.deepstack.ai.knowledge.model.entity.KnowledgeChunk;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -100,6 +101,29 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
     List<KnowledgeChunk> searchByFullText(@Param("knowledgeBaseId") Long knowledgeBaseId,
                                           @Param("queryText") String queryText,
                                           @Param("topK") int topK);
+
+    /**
+     * 分片管理分页：不返回 1024 维向量，只带回是否已有向量。
+     *
+     * @param page       分页参数
+     * @param documentId 文档 id
+     * @param keyword    内容关键字（可空）
+     * @return 分页结果
+     */
+    @Select("<script>" +
+            "SELECT id, knowledge_base_id, document_id, chunk_index, content, token_count, " +
+            "       metadata, create_time, update_time, " +
+            "       CASE WHEN embedding IS NULL THEN 0 ELSE 1 END AS has_embedding " +
+            "FROM knowledge_chunk " +
+            "WHERE is_del = 0 AND document_id = #{documentId} " +
+            "<if test='keyword != null and keyword != \"\"'>" +
+            "  AND content LIKE CONCAT('%', #{keyword}, '%') " +
+            "</if>" +
+            "ORDER BY chunk_index ASC" +
+            "</script>")
+    IPage<KnowledgeChunk> pageChunks(IPage<KnowledgeChunk> page,
+                                     @Param("documentId") Long documentId,
+                                     @Param("keyword") String keyword);
 
     /**
      * 按 document_id 物理删除分片（重建 embedding 时用）

@@ -438,16 +438,10 @@ public class KnowledgeChunkServiceImpl extends ServiceImpl<KnowledgeChunkMapper,
     public IPage<KnowledgeChunk> page(KnowledgeChunkPageRequest req) {
         log.info("page: documentId={}, pageNum={}, pageSize={}, keyword={}",
                 req.getDocumentId(), req.getPageNum(), req.getPageSize(), req.getKeyword());
-        LambdaQueryWrapper<KnowledgeChunk> wrapper = new LambdaQueryWrapper<KnowledgeChunk>()
-                .eq(KnowledgeChunk::getDocumentId, req.getDocumentId())
-                .select(KnowledgeChunk.class, info -> !"embedding".equals(info.getProperty()))
-                .orderByAsc(KnowledgeChunk::getChunkIndex);
-
-        if (StringUtils.hasText(req.getKeyword())) {
-            wrapper.like(KnowledgeChunk::getContent, req.getKeyword());
-        }
-
-        return baseMapper.selectPage(new Page<>(req.getPageNum(), req.getPageSize()), wrapper);
+        return baseMapper.pageChunks(
+                new Page<>(req.getPageNum(), req.getPageSize()),
+                req.getDocumentId(),
+                req.getKeyword());
     }
 
     /** 按文档删除分块。 */

@@ -72,7 +72,9 @@ public class KnowledgeChunkController {
         r.setChunkIndex(c.getChunkIndex());
         r.setContent(c.getContent());
         r.setTokenCount(c.getTokenCount());
-        r.setHasEmbedding(YesNo.codeOf(c.getEmbedding() != null && !c.getEmbedding().isEmpty()));
+        r.setHasEmbedding(c.getHasEmbedding() != null
+                ? c.getHasEmbedding()
+                : YesNo.codeOf(false));
         r.setHasEmbeddingName(YesNo.labelOf(r.getHasEmbedding()));
         r.setMetadata(c.getMetadata());
         r.setCreateTime(c.getCreateTime());
