@@ -42,8 +42,8 @@
                 </span>
               </td>
               <td class="row-actions">
-                <button class="btn-ghost" type="button" :disabled="testing" @click="testSaved(item)">
-                  {{ testing ? '测试中…' : '测试' }}
+                <button class="btn-ghost" type="button" :disabled="!!testingKey" @click="testSaved(item)">
+                  {{ testingKey === `row:${item.id}` ? '测试中…' : '测试' }}
                 </button>
                 <button class="btn-ghost" type="button" @click="openEdit(item)">编辑</button>
                 <button class="btn-ghost" type="button" @click="openKey(item)">API Key</button>
@@ -134,8 +134,8 @@
         <p v-if="error" class="error">{{ error }}</p>
         <div class="drawer-actions">
           <button class="btn" type="button" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
-          <button class="btn-ghost" type="button" :disabled="testing" @click="testForm">
-            {{ testing ? '测试中…' : '测试' }}
+          <button class="btn-ghost" type="button" :disabled="!!testingKey" @click="testForm">
+            {{ testingKey === 'form' ? '测试中…' : '测试' }}
           </button>
           <button class="btn-ghost" type="button" @click="drawer = null">取消</button>
         </div>
@@ -178,7 +178,7 @@ import {
 const saving = ref(false)
 const drawer = ref(null)
 const apiKey = ref('')
-const testing = ref(false)
+const testingKey = ref('')
 const testResult = ref(null)
 const isAdmin = getIsAdmin()
 
@@ -289,8 +289,8 @@ async function toggle(item) {
   }
 }
 
-async function runTest(payload) {
-  testing.value = true
+async function runTest(payload, key) {
+  testingKey.value = key
   testResult.value = null
   try {
     const res = await post('/api/models/test', payload)
@@ -298,13 +298,13 @@ async function runTest(payload) {
   } catch (e) {
     testResult.value = { ok: false, message: e.message || '测试失败' }
   } finally {
-    testing.value = false
+    testingKey.value = ''
   }
 }
 
 /** 列表行：测试已保存的配置 */
 function testSaved(item) {
-  runTest({ id: item.id })
+  runTest({ id: item.id }, `row:${item.id}`)
 }
 
 /** 抽屉：测试当前表单值；未填 Key 时由后端回落到库中已存的 Key */
@@ -314,7 +314,7 @@ function testForm() {
       testResult.value = { ok: false, message: '请先填写新的 API Key' }
       return
     }
-    runTest({ id: form.id, apiKey: apiKey.value })
+    runTest({ id: form.id, apiKey: apiKey.value }, 'form')
     return
   }
   runTest({
@@ -325,7 +325,7 @@ function testForm() {
     apiModelName: form.apiModelName,
     customHeaders: form.customHeaders,
     apiKey: form.apiKey || undefined
-  })
+  }, 'form')
 }
 
 onMounted(load)
