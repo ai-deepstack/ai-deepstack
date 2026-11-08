@@ -940,6 +940,14 @@ body.is-login #app {
   border-collapse: collapse;
   font-size: 0.9rem;
 }
+.md-table-wrap {
+  margin: 0.6rem 0;
+  overflow-x: auto;
+}
+.md-table-wrap table {
+  margin: 0;
+  min-width: 100%;
+}
 .markdown-body th,
 .markdown-body td {
   border: 1px solid var(--line-strong);
