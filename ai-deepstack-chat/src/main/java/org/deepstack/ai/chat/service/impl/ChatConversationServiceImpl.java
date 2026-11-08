@@ -58,6 +58,21 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
      */
     @Override
     public ChatConversation getOrCreate(String conversationId, String agentCode, String userId) {
+        return getOrCreate(conversationId, agentCode, userId, null);
+    }
+
+    /**
+     * 获取或创建会话；首条用户消息用于生成标题，老会话标题为空时补写。
+     *
+     * @param conversationId   业务会话 ID
+     * @param agentCode        Agent 编码
+     * @param userId           用户 ID
+     * @param firstUserMessage 首条用户消息（可空）
+     * @return 会话实体
+     */
+    @Override
+    public ChatConversation getOrCreate(String conversationId, String agentCode,
+                                        String userId, String firstUserMessage) {
         log.info("getOrCreate: conversationId={}, agentCode={}, userId={}",
                 conversationId, agentCode, userId);
         // 内部直查，避免「首次创建」路径误打 not-found warn
@@ -73,15 +88,22 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
                     && !Objects.equals(existing.getUserId(), userId)) {
                 throw new BusinessException(CommonErrorCode.UNAUTHORIZED.getCode(), "无权访问该会话");
             }
-            // 更新 last_message_at 和 message_count
+            // 更新 last_message_at 和 message_count；标题为空时用本轮消息补写
             int newCount = (existing.getMessageCount() != null ? existing.getMessageCount() : 0) + 1;
-            baseMapper.update(null,
-                    new LambdaUpdateWrapper<ChatConversation>()
-                            .eq(ChatConversation::getConversationId, conversationId)
-                            .set(ChatConversation::getLastMessageAt, LocalDateTime.now())
-                            .set(ChatConversation::getMessageCount, newCount));
+            LocalDateTime now = LocalDateTime.now();
+            LambdaUpdateWrapper<ChatConversation> update = new LambdaUpdateWrapper<ChatConversation>()
+                    .eq(ChatConversation::getConversationId, conversationId)
+                    .set(ChatConversation::getLastMessageAt, now)
+                    .set(ChatConversation::getMessageCount, newCount);
+            if (!StringUtils.hasText(existing.getTitle()) && StringUtils.hasText(firstUserMessage)) {
+                existing.setTitle(buildTitle(firstUserMessage));
+            }
+            if (StringUtils.hasText(existing.getTitle())) {
+                update.set(ChatConversation::getTitle, existing.getTitle());
+            }
+            baseMapper.update(null, update);
             // update_time 由 DB 触发器 / MetaObjectHandler 维护，业务勿赋值
-            existing.setLastMessageAt(LocalDateTime.now());
+            existing.setLastMessageAt(now);
             existing.setMessageCount(newCount);
             return existing;
         }
@@ -91,12 +113,22 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
         conversation.setConversationId(conversationId);
         conversation.setAgentCode(agentCode);
         conversation.setUserId(userId);
+        conversation.setTitle(buildTitle(firstUserMessage));
         conversation.setMessageCount(1);
         conversation.setLastMessageAt(LocalDateTime.now());
         baseMapper.insert(conversation);
         log.info("ChatConversation created: conversationId={}, agentCode={}, userId={}",
                 conversationId, agentCode, userId);
         return conversation;
+    }
+
+    /** 会话标题：压缩空白后截断到 40 字。 */
+    private static String buildTitle(String message) {
+        if (!StringUtils.hasText(message)) {
+            return null;
+        }
+        String title = message.trim().replaceAll("\\s+", " ");
+        return title.length() <= 40 ? title : title.substring(0, 40) + "…";
     }
 
     /**
@@ -109,13 +141,28 @@ public class ChatConversationServiceImpl extends ServiceImpl<ChatConversationMap
      */
     @Override
     public IPage<ChatConversation> pageByUserId(String userId, long pageNum, long pageSize) {
+        return pageByUserId(userId, null, pageNum, pageSize);
+    }
+
+    /**
+     * 按用户分页查询会话列表，可按 Agent 过滤。
+     *
+     * @param userId    用户 ID
+     * @param agentCode Agent 编码（可空）
+     * @param pageNum   页码
+     * @param pageSize  页大小（最大 100）
+     * @return 分页结果
+     */
+    @Override
+    public IPage<ChatConversation> pageByUserId(String userId, String agentCode, long pageNum, long pageSize) {
         long pn = pageNum < 1 ? 1 : pageNum;
         long ps = pageSize < 1 ? 20 : Math.min(pageSize, 100);
-        log.info("pageByUserId: userId={}, pageNum={}, pageSize={}", userId, pn, ps);
+        log.info("pageByUserId: userId={}, agentCode={}, pageNum={}, pageSize={}", userId, agentCode, pn, ps);
         return baseMapper.selectPage(
                 new Page<>(pn, ps),
                 new LambdaQueryWrapper<ChatConversation>()
                         .eq(ChatConversation::getUserId, userId)
+                        .eq(StringUtils.hasText(agentCode), ChatConversation::getAgentCode, agentCode)
                         .eq(ChatConversation::getIsDel, 0)
                         .orderByDesc(ChatConversation::getLastMessageAt)
                         .orderByDesc(ChatConversation::getId));

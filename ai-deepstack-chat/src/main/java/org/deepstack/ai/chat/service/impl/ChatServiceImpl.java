@@ -424,7 +424,7 @@ public class ChatServiceImpl implements ChatService {
 
         String conversationId = resolveConversationId(scene, request.getConversationId());
         // 持久化会话记录，供 reject 等跨请求场景反查 agentCode / modelCode
-        chatConversationService.getOrCreate(conversationId, scene.getAgentCode(), request.getUserId());
+        chatConversationService.getOrCreate(conversationId, scene.getAgentCode(), request.getUserId(), request.getMessage());
         Map<String, Object> stages = new java.util.concurrent.ConcurrentHashMap<>();
         String systemPrompt = buildSystemPrompt(scene, request.getUserId(), request, stages);
         OpenAiChatOptions.Builder optionsBuilder = buildChatOptions(modelConfig, scene);

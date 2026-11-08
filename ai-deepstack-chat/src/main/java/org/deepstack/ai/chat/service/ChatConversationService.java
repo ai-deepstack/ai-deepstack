@@ -32,6 +32,17 @@ public interface ChatConversationService extends IService<ChatConversation> {
     ChatConversation getOrCreate(String conversationId, String agentCode, String userId);
 
     /**
+     * 获取或创建会话，并在首次创建时用首条用户消息生成标题。
+     *
+     * @param conversationId   业务会话 ID
+     * @param agentCode        Agent 编码
+     * @param userId           用户 ID（可空）
+     * @param firstUserMessage 首条用户消息，用于生成会话标题（可空）
+     * @return 已存在或新建的会话记录
+     */
+    ChatConversation getOrCreate(String conversationId, String agentCode, String userId, String firstUserMessage);
+
+    /**
      * 分页查询用户会话列表（按最后消息时间倒序）。
      *
      * @param userId   用户 ID
@@ -40,6 +51,17 @@ public interface ChatConversationService extends IService<ChatConversation> {
      * @return 分页结果
      */
     IPage<ChatConversation> pageByUserId(String userId, long pageNum, long pageSize);
+
+    /**
+     * 分页查询用户会话列表，可按 Agent 过滤（按最后消息时间倒序）。
+     *
+     * @param userId    用户 ID
+     * @param agentCode Agent 编码；空表示不过滤
+     * @param pageNum   页码（从 1 开始）
+     * @param pageSize  每页条数
+     * @return 分页结果
+     */
+    IPage<ChatConversation> pageByUserId(String userId, String agentCode, long pageNum, long pageSize);
 
     /**
      * 校验会话归属当前用户；不存在或无权访问时抛业务异常。

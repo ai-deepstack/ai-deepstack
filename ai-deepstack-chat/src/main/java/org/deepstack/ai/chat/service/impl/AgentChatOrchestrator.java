@@ -311,7 +311,7 @@ public class AgentChatOrchestrator {
      */
     private GraphSession buildSession(AiAgent agent, ChatRequest request,
                                       Long loginUserId, String conversationId) {
-        chatConversationService.getOrCreate(conversationId, agent.getAgentCode(), request.getUserId());
+        chatConversationService.getOrCreate(conversationId, agent.getAgentCode(), request.getUserId(), request.getMessage());
 
         GraphSpec workflow = AgentGraphSpecs.fromPublished(agent);
         TraceConfig traceConfig = TraceConfig.resolve(
