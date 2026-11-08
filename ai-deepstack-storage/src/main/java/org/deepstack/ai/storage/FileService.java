@@ -45,4 +45,18 @@ public interface FileService {
     default String getFileUrl(String objectKey) {
         return objectKey;
     }
+
+    /**
+     * 将对象 URL 转成可访问的预签名 URL；非本存储 URL 原样返回。
+     */
+    default String presignUrl(String url) {
+        return url;
+    }
+
+    /**
+     * 去掉预签名参数，恢复成可长期存储的稳定 URL；非本存储 URL 原样返回。
+     */
+    default String normalizeUrl(String url) {
+        return url;
+    }
 }

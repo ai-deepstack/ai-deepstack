@@ -58,6 +58,9 @@ public class AiModel implements Serializable {
     /** 扩展 JSON，如 {"dimensions":1024} */
     private String extraJson;
 
+    /** 自定义请求头 JSON 对象，如 {"x-opencode-session":"abc"} */
+    private String customHeaders;
+
     /** 是否启用：1启用 0停用 */
     private Integer enabled;
 

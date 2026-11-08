@@ -455,20 +455,18 @@ public class AgeGraphStore implements GraphStore {
      */
     private List<GraphEdge> readTriples(Connection conn, String graph, String cypher) throws SQLException {
         List<GraphEdge> out = new ArrayList<>();
-        String sql = "SELECT * FROM cypher(?, $$" + cypher + "$$) AS (fk agtype, rt agtype, tk agtype)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, graph);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String from = stripAgtype(rs.getString(1));
-                    String type = stripAgtype(rs.getString(2));
-                    String to = stripAgtype(rs.getString(3));
-                    if (StringUtils.hasText(from) && StringUtils.hasText(type) && StringUtils.hasText(to)) {
-                        try {
-                            out.add(new GraphEdge(from, to, sanitizeLabel(type), Map.of()));
-                        } catch (IllegalArgumentException ex) {
-                            log.warn("AGE 跳过非法边类型: type={}, from={}, to={}", type, from, to);
-                        }
+        String sql = cypherSql(graph, cypher, "fk agtype, rt agtype, tk agtype");
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                String from = stripAgtype(rs.getString(1));
+                String type = stripAgtype(rs.getString(2));
+                String to = stripAgtype(rs.getString(3));
+                if (StringUtils.hasText(from) && StringUtils.hasText(type) && StringUtils.hasText(to)) {
+                    try {
+                        out.add(new GraphEdge(from, to, sanitizeLabel(type), Map.of()));
+                    } catch (IllegalArgumentException ex) {
+                        log.warn("AGE 跳过非法边类型: type={}, from={}, to={}", type, from, to);
                     }
                 }
             }
@@ -498,15 +496,13 @@ public class AgeGraphStore implements GraphStore {
     /** 执行 Cypher 并读取节点。 */
     private List<GraphNode> readNodes(Connection conn, String graph, String cypher) throws SQLException {
         List<GraphNode> out = new ArrayList<>();
-        String sql = "SELECT * FROM cypher(?, $$" + cypher + "$$) AS (n agtype)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, graph);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    GraphNode node = parseVertex(rs.getString(1));
-                    if (node != null) {
-                        out.add(node);
-                    }
+        String sql = cypherSql(graph, cypher, "n agtype");
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                GraphNode node = parseVertex(rs.getString(1));
+                if (node != null) {
+                    out.add(node);
                 }
             }
         }
@@ -515,23 +511,21 @@ public class AgeGraphStore implements GraphStore {
 
     /** 单列计数 cypher（RETURN count(...)）。 */
     private long countCypher(Connection conn, String graph, String cypher) throws SQLException {
-        String sql = "SELECT * FROM cypher(?, $$" + cypher + "$$) AS (c agtype)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, graph);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) {
-                    return 0L;
-                }
-                String raw = stripAgtype(rs.getString(1));
-                if (!StringUtils.hasText(raw)) {
-                    return 0L;
-                }
-                try {
-                    return Long.parseLong(raw.trim());
-                } catch (NumberFormatException e) {
-                    log.warn("AGE count 无法解析: raw={}", raw);
-                    return 0L;
-                }
+        String sql = cypherSql(graph, cypher, "c agtype");
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            if (!rs.next()) {
+                return 0L;
+            }
+            String raw = stripAgtype(rs.getString(1));
+            if (!StringUtils.hasText(raw)) {
+                return 0L;
+            }
+            try {
+                return Long.parseLong(raw.trim());
+            } catch (NumberFormatException e) {
+                log.warn("AGE count 无法解析: raw={}", raw);
+                return 0L;
             }
         }
     }
@@ -539,15 +533,13 @@ public class AgeGraphStore implements GraphStore {
     /** 单列字符串列表（如 n.key）。 */
     private List<String> readScalarStrings(Connection conn, String graph, String cypher) throws SQLException {
         List<String> out = new ArrayList<>();
-        String sql = "SELECT * FROM cypher(?, $$" + cypher + "$$) AS (c agtype)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, graph);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String v = stripAgtype(rs.getString(1));
-                    if (StringUtils.hasText(v)) {
-                        out.add(v);
-                    }
+        String sql = cypherSql(graph, cypher, "c agtype");
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                String v = stripAgtype(rs.getString(1));
+                if (StringUtils.hasText(v)) {
+                    out.add(v);
                 }
             }
         }
@@ -559,24 +551,22 @@ public class AgeGraphStore implements GraphStore {
      */
     private List<GraphNode> readNodesWithHop(Connection conn, String graph, String cypher) throws SQLException {
         List<GraphNode> out = new ArrayList<>();
-        String sql = "SELECT * FROM cypher(?, $$" + cypher + "$$) AS (n agtype, hop agtype)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, graph);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    GraphNode node = parseVertex(rs.getString(1));
-                    if (node == null) {
-                        continue;
-                    }
-                    Integer hop = parseHopAgtype(rs.getString(2));
-                    if (hop == null) {
-                        out.add(node);
-                        continue;
-                    }
-                    Map<String, Object> props = new LinkedHashMap<>(node.getProperties());
-                    props.put("hop", hop);
-                    out.add(new GraphNode(node.getKey(), node.getLabel(), props));
+        String sql = cypherSql(graph, cypher, "n agtype, hop agtype");
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                GraphNode node = parseVertex(rs.getString(1));
+                if (node == null) {
+                    continue;
                 }
+                Integer hop = parseHopAgtype(rs.getString(2));
+                if (hop == null) {
+                    out.add(node);
+                    continue;
+                }
+                Map<String, Object> props = new LinkedHashMap<>(node.getProperties());
+                props.put("hop", hop);
+                out.add(new GraphNode(node.getKey(), node.getLabel(), props));
             }
         }
         return out;
@@ -599,12 +589,17 @@ public class AgeGraphStore implements GraphStore {
         }
     }
 
-    /** 执行一条 Cypher。 */
+    /** 构造 AGE cypher 查询；图名必须是字面量，不能绑定参数。 */
+    private String cypherSql(String graph, String cypher, String columns) {
+        return "SELECT * FROM cypher('" + graph.replace("'", "''") + "', $$"
+                + cypher + "$$) AS (" + columns + ")";
+    }
+
+    /** 执行一条 Cypher（AGE 要求图名为字面量，不能用绑定参数）。 */
     private void runCypher(Connection conn, String graph, String cypher, String alias) throws SQLException {
-        String sql = "SELECT * FROM cypher(?, $$" + cypher + "$$) AS (" + alias + " agtype)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, graph);
-            ps.execute();
+        String sql = cypherSql(graph, cypher, alias + " agtype");
+        try (Statement st = conn.createStatement()) {
+            st.execute(sql);
         }
     }
 
@@ -623,11 +618,19 @@ public class AgeGraphStore implements GraphStore {
     private <T> T withAge(ConnectionCallback<T> action) {
         return jdbcTemplate.execute((ConnectionCallback<T>) conn -> {
             try (Statement st = conn.createStatement()) {
-                st.execute("LOAD 'age'");
+                // LOAD 仅超级用户可执行；非超级用户依赖 shared_preload_libraries='age'
+                boolean superuser;
+                try (ResultSet rs = st.executeQuery(
+                        "SELECT rolsuper FROM pg_roles WHERE rolname = current_user")) {
+                    superuser = rs.next() && rs.getBoolean(1);
+                }
+                if (superuser) {
+                    st.execute("LOAD 'age'");
+                }
                 st.execute("SET search_path = ag_catalog, \"$user\", public, deepstack");
             } catch (SQLException e) {
                 throw new IllegalStateException(
-                        "无法加载 Apache AGE（请确认已安装扩展并执行 sql/04_apache_age.sql）: "
+                        "无法加载 Apache AGE（请确认已安装扩展、配置 shared_preload_libraries='age' 并重启）: "
                                 + e.getMessage(), e);
             }
             return action.doInConnection(conn);

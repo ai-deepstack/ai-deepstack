@@ -9,6 +9,7 @@ public final class WorkflowEventTypes {
     public static final String NODE_COMPLETE = "NODE_COMPLETE";
     public static final String WORKFLOW_COMPLETE = "WORKFLOW_COMPLETE";
     public static final String LLM_STREAM = "LLM_STREAM";
+    public static final String LLM_REASONING = "LLM_REASONING";
     public static final String CARD = "CARD";
     public static final String CARD_STATUS = "CARD_STATUS";
 

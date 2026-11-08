@@ -2,6 +2,7 @@
 export const ChatSseEvents = Object.freeze({
   CONVERSATION: 'conversation',
   MESSAGE: 'message',
+  REASONING: 'reasoning',
   CARD: 'card',
   CARD_STATUS: 'card_status',
   CARD_ACTION_RESULT: 'card_action_result',

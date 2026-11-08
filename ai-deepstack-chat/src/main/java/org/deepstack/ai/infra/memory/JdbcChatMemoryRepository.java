@@ -3,6 +3,7 @@ package org.deepstack.ai.infra.memory;
 import org.deepstack.ai.chat.model.entity.memory.ChatMemoryRecord;
 import org.deepstack.ai.chat.mapper.memory.ChatMemoryMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
@@ -106,6 +107,7 @@ public class JdbcChatMemoryRepository implements ChatMemoryRepository {
         for (int i = 0; i < toAppend.size(); i++) {
             Message msg = toAppend.get(i);
             ChatMemoryRecord record = new ChatMemoryRecord();
+            record.setId(IdWorker.getId());
             record.setConversationId(conversationId);
             record.setMessageType(msg.getMessageType().getValue());
             record.setContent(msg.getText());

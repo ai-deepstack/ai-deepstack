@@ -408,21 +408,36 @@ public class KnowledgeDocumentServiceImpl extends ServiceImpl<KnowledgeDocumentM
     public void deleteById(Long id) {
         log.info("deleteById: id={}", id);
         KnowledgeDocument entity = baseMapper.selectById(id);
-        if (entity != null) {
-            KnowledgeBase kb = knowledgeBaseService.getById(entity.getKnowledgeBaseId());
-            if (kb != null) {
+        KnowledgeBase kb = entity != null ? knowledgeBaseService.getById(entity.getKnowledgeBaseId()) : null;
+        // 物理删除分片（chunks 不走逻辑删除，避免向量索引膨胀）
+        int chunks = knowledgeChunkMapper.deleteByDocumentId(id);
+        // 文档逻辑删除
+        baseMapper.deleteById(id);
+        // 图数据删除放到事务提交后：AGE 未就绪时不会把当前事务带崩
+        if (kb != null) {
+            afterCommit(() -> {
                 try {
                     knowledgeGraphIndexer.deleteDocumentGraph(kb, id);
                 } catch (Exception e) {
                     log.warn("deleteById 清图失败（继续）: docId={}, err={}", id, e.getMessage());
                 }
-            }
+            });
         }
-        // 物理删除分片（chunks 不走逻辑删除，避免向量索引膨胀）
-        int chunks = knowledgeChunkMapper.deleteByDocumentId(id);
-        // 文档逻辑删除
-        baseMapper.deleteById(id);
         log.info("Deleted knowledge document: id={}, removedChunks={}", id, chunks);
+    }
+
+    /** 事务提交后执行；无事务时立即执行。 */
+    private void afterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
     }
 
     // ===== private =====

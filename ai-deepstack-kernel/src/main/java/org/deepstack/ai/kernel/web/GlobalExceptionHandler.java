@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * 全局异常处理：业务异常与未捕获异常统一转为 {@link Response}。
@@ -22,6 +23,20 @@ public class GlobalExceptionHandler {
     public Response<Void> handleBusiness(BusinessException e) {
         log.warn("Business error: code={}, msg={}", e.getCode(), e.getMessage());
         return Response.fail(e);
+    }
+
+    /**
+     * 上传超过 multipart 限制 → 明确提示上限，避免落到通用 500。
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Response<Void> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        long maxBytes = e.getMaxUploadSize();
+        String limit = maxBytes > 0
+                ? (maxBytes / (1024 * 1024)) + "MB"
+                : "配置上限";
+        log.warn("Upload size exceeded: max={}", limit);
+        return Response.fail(CommonErrorCode.INVALID_PARAM.getCode(),
+                "上传文件过大，单文件最大 " + limit);
     }
 
     /**

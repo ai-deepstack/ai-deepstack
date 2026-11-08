@@ -187,6 +187,8 @@ public class AgentChatOrchestrator {
                         return switch (type) {
                             case WorkflowEventTypes.LLM_STREAM ->
                                     ChatSse.of(ChatSseEvents.MESSAGE, event.getResult());
+                            case WorkflowEventTypes.LLM_REASONING ->
+                                    ChatSse.of(ChatSseEvents.REASONING, event.getResult());
                             case WorkflowEventTypes.CARD ->
                                     ChatSse.of(ChatSseEvents.CARD, event.getResult());
                             case WorkflowEventTypes.CARD_STATUS -> {

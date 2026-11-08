@@ -43,6 +43,9 @@ public class AiModelUpdateRequest implements Serializable {
     @Size(max = 2048, message = "扩展配置长度不能超过 2048")
     private String extraJson;
 
+    @Size(max = 2048, message = "自定义请求头长度不能超过 2048")
+    private String customHeaders;
+
     private Integer enabled;
 
     /** 可见性：0公共 1私有 */

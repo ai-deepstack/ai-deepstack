@@ -2,6 +2,7 @@ package org.deepstack.ai.knowledge.model.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
@@ -71,13 +72,15 @@ public class KnowledgeDocument implements Serializable {
     /** 写图状态码：见 DocGraphStatusEnum */
     private Integer graphStatus;
 
-    /** 写图失败原因 */
+    /** 写图失败原因（允许更新为 null 以清除旧错误） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String graphError;
 
     /** 分块数量 */
     private Integer chunkCount;
 
-    /** 失败错误信息 */
+    /** 失败错误信息（允许更新为 null 以清除旧错误） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String errorMsg;
 
     // ===== 公共字段 =====

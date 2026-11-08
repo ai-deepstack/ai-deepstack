@@ -1,0 +1,28 @@
+# 要导入 ZHOUYI 知识库的文件清单
+# 一行一个，相对于 knowledge/metaphysics/ 目录
+01_易经_六十四卦.md
+classics/01_易经_系辞上.md
+classics/02_易经_系辞下.md
+classics/03_易经_说卦.md
+classics/04_易经_序卦.md
+classics/05_易经_杂卦.md
+classics/10_梅花易数_序.md
+classics/11_梅花易数_卷一_象数易理.md
+classics/12_梅花易数_卷二_断占总诀.md
+classics/13_梅花易数_卷三_占例八卦类象.md
+classics/20_滴天髓.md
+classics/21_增删卜易.md
+classics/22_渊海子平.md
+classics/30_三命通会_卷一.md
+classics/31_三命通会_卷二.md
+classics/32_三命通会_卷三.md
+classics/33_三命通会_卷四.md
+classics/34_三命通会_卷五.md
+classics/35_三命通会_卷六.md
+classics/36_三命通会_卷七.md
+classics/37_三命通会_卷八.md
+classics/38_三命通会_卷九.md
+classics/40_奇门遁甲_烟波钓叟歌.md
+classics/41_奇门遁甲_元灵经.md
+classics/42_奇门遁甲_统宗.md
+classics/43_奇门遁甲_演义.md

@@ -106,6 +106,9 @@ public class McpToolBridge {
                 .tool(tool)
                 .prefixedToolName(platformToolCode)
                 .build();
+        // Spring AI 会把 MCP 的 List<Content> 序列化成 JSON 数组字符串，模型拿不到正文；
+        // 这里包一层解包，把 text 段取出来交给模型。
+        cb = new UnwrappingMcpToolCallback(cb);
         log.info("McpToolBridge: built ToolCallback connection={}, remote={}, toolCode={}",
                 connectionCode, remoteToolName, platformToolCode);
         return cb;

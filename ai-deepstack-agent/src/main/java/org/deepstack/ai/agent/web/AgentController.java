@@ -14,6 +14,7 @@ import org.deepstack.ai.knowledge.service.KnowledgeBaseService;
 import org.deepstack.ai.kernel.model.PageInfo;
 import org.deepstack.ai.kernel.model.Response;
 import org.deepstack.ai.kernel.model.SelectOption;
+import org.deepstack.ai.storage.FileService;
 import org.deepstack.ai.kernel.enums.common.EnabledStatusEnum;
 import org.deepstack.ai.kernel.enums.agent.OrchestrateModeEnum;
 import org.deepstack.ai.kernel.enums.common.YesNo;
@@ -47,6 +48,7 @@ public class AgentController {
     private final AiAgentService aiAgentService;
     private final AiModelService aiModelService;
     private final KnowledgeBaseService knowledgeBaseService;
+    private final FileService fileService;
 
     /**
      * 分页查询 Agent，并填充模型名与知识库绑定。
@@ -129,6 +131,10 @@ public class AgentController {
                 req != null ? req.getAgentName() : null,
                 req != null ? req.getSourceAgentId() : null,
                 req != null ? req.getOrchestrateMode() : null);
+        if (req != null && req.getCoverUrl() != null) {
+            // 前端可能回传预签名 URL；落库前去掉签名参数
+            req.setCoverUrl(fileService.normalizeUrl(req.getCoverUrl()));
+        }
         return Response.success(aiAgentService.create(req));
     }
 
@@ -140,6 +146,10 @@ public class AgentController {
     @PutMapping
     public Response<Void> update(@RequestBody AiAgentUpdateRequest req) {
         log.info("API update agent: id={}", req != null ? req.getId() : null);
+        if (req != null && req.getCoverUrl() != null) {
+            // 前端可能回传预签名 URL；落库前去掉签名参数
+            req.setCoverUrl(fileService.normalizeUrl(req.getCoverUrl()));
+        }
         aiAgentService.update(req);
         return Response.success();
     }
@@ -230,7 +240,7 @@ public class AgentController {
         r.setTraceModeName(org.deepstack.ai.kernel.enums.agent.TraceModeEnum.labelOf(s.getTraceMode()));
         r.setStreamProgress(s.getStreamProgress());
         r.setStreamProgressName(YesNo.labelOf(s.getStreamProgress()));
-        r.setCoverUrl(s.getCoverUrl());
+        r.setCoverUrl(fileService.presignUrl(s.getCoverUrl()));
         r.setCreateTime(s.getCreateTime());
         r.setUpdateTime(s.getUpdateTime());
         return r;

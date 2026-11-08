@@ -42,6 +42,7 @@
 | --- | --- |
 | `NODE_START` / `NODE_COMPLETE` | 节点起止（含耗时、失败信息） |
 | `LLM_STREAM` | 节点内流式 token |
+| `LLM_REASONING` | 节点内推理内容增量（`reasoning_content`） |
 | `CARD` / `CARD_STATUS` | 卡片产出与生成阶段 |
 | `WORKFLOW_COMPLETE` | 整图结束（含 `nodeExecutions`） |
 
@@ -75,6 +76,7 @@
 ### 2.5 前端
 
 - Playground：流式内容 + `usage`（含 `runId`/`traceId`）；GRAPH 可跟节点/卡片事件。
+- CHAT 流式在推理模型下额外推送 `reasoning` 事件（`reasoning_content` 增量），前端以可折叠「思考过程」展示。
 - GraphEditor：试跑对话框，可查 run 状态 / `nodeExecutions`。
 - 运行可观测（`/runs`）：概览 KPI + 失败 Top + 慢请求 + 列表筛选 + 详情（stages / 节点时间线）。
 

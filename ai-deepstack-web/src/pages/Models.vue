@@ -42,6 +42,9 @@
                 </span>
               </td>
               <td class="row-actions">
+                <button class="btn-ghost" type="button" :disabled="testing" @click="testSaved(item)">
+                  {{ testing ? '测试中…' : '测试' }}
+                </button>
                 <button class="btn-ghost" type="button" @click="openEdit(item)">编辑</button>
                 <button class="btn-ghost" type="button" @click="openKey(item)">API Key</button>
                 <button class="btn-ghost" type="button" @click="toggle(item)">
@@ -90,11 +93,25 @@
             </div>
             <div class="field">
               <label>Base URL</label>
-              <input v-model="form.baseUrl" />
+              <input v-model="form.baseUrl" placeholder="https://api.openai.com/v1" />
+              <p class="muted" style="margin: 0.35rem 0 0; font-size: 0.78rem">
+                需包含接口前缀（如 /v1），系统不会自动补全
+              </p>
             </div>
             <div class="field">
               <label>API Model Name</label>
               <input v-model="form.apiModelName" />
+            </div>
+            <div class="field" style="grid-column: 1 / -1">
+              <label>自定义请求头</label>
+              <textarea
+                v-model="form.customHeaders"
+                rows="3"
+                placeholder='{"x-opencode-session":"abc"}'
+              ></textarea>
+              <p class="muted" style="margin: 0.35rem 0 0; font-size: 0.78rem">
+                JSON 对象，key 为请求头名；留空表示不添加
+              </p>
             </div>
             <div class="field">
               <label>可见性</label>
@@ -117,9 +134,30 @@
         <p v-if="error" class="error">{{ error }}</p>
         <div class="drawer-actions">
           <button class="btn" type="button" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
+          <button class="btn-ghost" type="button" :disabled="testing" @click="testForm">
+            {{ testing ? '测试中…' : '测试' }}
+          </button>
           <button class="btn-ghost" type="button" @click="drawer = null">取消</button>
         </div>
       </aside>
+    </div>
+
+    <div v-if="testResult" class="modal-mask" @click.self="testResult = null">
+      <div class="modal-card">
+        <h3 style="margin: 0 0 0.8rem">测试结果</h3>
+        <p style="margin: 0 0 0.5rem">
+          <span class="pill" :class="testResult.ok ? 'pill-ok' : 'pill-off'">
+            {{ testResult.ok ? '可用' : '不可用' }}
+          </span>
+          <span v-if="testResult.latencyMs != null" class="muted" style="margin-left: 0.5rem">
+            {{ testResult.latencyMs }} ms
+          </span>
+        </p>
+        <p class="muted" style="margin: 0 0 1rem; word-break: break-word">{{ testResult.message }}</p>
+        <div class="row-actions" style="justify-content: flex-end">
+          <button class="btn" type="button" @click="testResult = null">关闭</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -140,6 +178,8 @@ import {
 const saving = ref(false)
 const drawer = ref(null)
 const apiKey = ref('')
+const testing = ref(false)
+const testResult = ref(null)
 const isAdmin = getIsAdmin()
 
 // 列表分页、过期响应丢弃与错误展示统一交给 usePageList
@@ -160,9 +200,10 @@ const form = reactive({
   modelName: '',
   modelType: ModelType.CHAT,
   provider: 'openai',
-  baseUrl: 'https://api.openai.com',
+  baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   apiModelName: 'gpt-4o-mini',
+  customHeaders: '',
   visibility: ModelVisibility.PRIVATE,
   enabled: 1
 })
@@ -174,9 +215,10 @@ function openCreate() {
     modelName: '',
     modelType: ModelType.CHAT,
     provider: 'openai',
-    baseUrl: 'https://api.openai.com',
+    baseUrl: 'https://api.openai.com/v1',
     apiKey: '',
     apiModelName: 'gpt-4o-mini',
+    customHeaders: '',
     visibility: isAdmin ? ModelVisibility.PUBLIC : ModelVisibility.PRIVATE,
     enabled: 1
   })
@@ -193,6 +235,7 @@ function openEdit(item) {
     baseUrl: item.baseUrl,
     apiKey: '',
     apiModelName: item.apiModelName,
+    customHeaders: item.customHeaders ?? '',
     visibility: item.visibility ?? ModelVisibility.PUBLIC,
     enabled: item.enabled
   })
@@ -212,10 +255,20 @@ async function save() {
   try {
     if (drawer.value === 'key') {
       await put(`/api/models/${form.id}/apiKey`, { apiKey: apiKey.value })
-    } else if (form.id) {
-      await put('/api/models', { ...form })
     } else {
-      await post('/api/models', { ...form })
+      const customHeaders = form.customHeaders.trim()
+      if (customHeaders) {
+        try {
+          const parsed = JSON.parse(customHeaders)
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error()
+        } catch {
+          error.value = '自定义请求头必须是 JSON 对象，如 {"x-opencode-session":"abc"}'
+          return
+        }
+      }
+      const payload = { ...form, customHeaders }
+      if (form.id) await put('/api/models', payload)
+      else await post('/api/models', payload)
     }
     drawer.value = null
     await load()
@@ -234,6 +287,45 @@ async function toggle(item) {
   } catch (e) {
     error.value = e.message
   }
+}
+
+async function runTest(payload) {
+  testing.value = true
+  testResult.value = null
+  try {
+    const res = await post('/api/models/test', payload)
+    testResult.value = res.data
+  } catch (e) {
+    testResult.value = { ok: false, message: e.message || '测试失败' }
+  } finally {
+    testing.value = false
+  }
+}
+
+/** 列表行：测试已保存的配置 */
+function testSaved(item) {
+  runTest({ id: item.id })
+}
+
+/** 抽屉：测试当前表单值；未填 Key 时由后端回落到库中已存的 Key */
+function testForm() {
+  if (drawer.value === 'key') {
+    if (!apiKey.value) {
+      testResult.value = { ok: false, message: '请先填写新的 API Key' }
+      return
+    }
+    runTest({ id: form.id, apiKey: apiKey.value })
+    return
+  }
+  runTest({
+    id: form.id ?? undefined,
+    modelType: form.modelType,
+    modelCode: form.modelCode || undefined,
+    baseUrl: form.baseUrl,
+    apiModelName: form.apiModelName,
+    customHeaders: form.customHeaders,
+    apiKey: form.apiKey || undefined
+  })
 }
 
 onMounted(load)

@@ -171,6 +171,7 @@ public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel> impl
         entity.setApiKey(req.getApiKey());
         entity.setApiModelName(req.getApiModelName());
         entity.setExtraJson(req.getExtraJson());
+        entity.setCustomHeaders(req.getCustomHeaders());
         entity.setEnabled(req.getEnabled());
         entity.setRemark(req.getRemark());
         entity.setVisibility(vis.getCode());
@@ -205,6 +206,7 @@ public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel> impl
         if (req.getBaseUrl() != null) entity.setBaseUrl(req.getBaseUrl());
         if (req.getApiModelName() != null) entity.setApiModelName(req.getApiModelName());
         if (req.getExtraJson() != null) entity.setExtraJson(req.getExtraJson());
+        if (req.getCustomHeaders() != null) entity.setCustomHeaders(req.getCustomHeaders());
         if (req.getEnabled() != null) entity.setEnabled(req.getEnabled());
         if (req.getRemark() != null) entity.setRemark(req.getRemark());
         if (req.getVisibility() != null) {

@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS deepstack.ai_model (
     api_key         VARCHAR(512) NOT NULL,
     api_model_name  VARCHAR(128) NOT NULL,
     extra_json      TEXT,
+    custom_headers  TEXT,
     enabled         SMALLINT     DEFAULT 1,
     remark          VARCHAR(512),
     visibility      SMALLINT     NOT NULL DEFAULT 0,
@@ -579,6 +580,7 @@ COMMENT ON COLUMN deepstack.ai_model.base_url IS 'OpenAI 兼容 API Base URL';
 COMMENT ON COLUMN deepstack.ai_model.api_key IS 'API 密钥（敏感）';
 COMMENT ON COLUMN deepstack.ai_model.api_model_name IS '上游实际模型名，如 gpt-4o-mini';
 COMMENT ON COLUMN deepstack.ai_model.extra_json IS '扩展 JSON，如 {"dimensions":1024}';
+COMMENT ON COLUMN deepstack.ai_model.custom_headers IS '自定义请求头 JSON 对象，如 {"x-opencode-session":"abc"}';
 COMMENT ON COLUMN deepstack.ai_model.enabled IS '是否启用：1启用 0停用';
 COMMENT ON COLUMN deepstack.ai_model.remark IS '备注';
 COMMENT ON COLUMN deepstack.ai_model.visibility IS '可见性：0公共 1私有';

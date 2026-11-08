@@ -59,6 +59,9 @@ public class AiModelResponse implements Serializable {
      */
     private String extraJson;
 
+    /** 自定义请求头 JSON 对象 */
+    private String customHeaders;
+
     /**
      * 是否启用
      */

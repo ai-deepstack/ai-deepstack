@@ -74,6 +74,12 @@ public class AiModelCreateRequest implements Serializable {
     private String extraJson;
 
     /**
+     * 自定义请求头 JSON 对象，如 {"x-opencode-session":"abc"}
+     */
+    @Size(max = 2048, message = "自定义请求头长度不能超过 2048")
+    private String customHeaders;
+
+    /**
      * 是否启用，默认 true
      */
     private Integer enabled = YesNo.YES.getCode();

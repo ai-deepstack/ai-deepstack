@@ -1,0 +1,140 @@
+#!/bin/bash
+#
+# ai-deepstack-app 容器启动脚本（1Panel 挂载）
+#
+# 容器重建后需要补齐的运行时：
+#   1. Tesseract      —— 知识库扫描件 OCR
+#   2. Node 20        —— STDIO/SSE 型 MCP Server
+#   3. metaphysics-mcp —— 玄学排盘 MCP，重启时与 registry 最新版对齐
+#   4. SSE 常驻进程    —— 平台 MCP 连接使用
+#
+# 全部幂等：已满足条件则跳过。
+
+set -uo pipefail
+
+log() { echo "[run.sh] $*"; }
+
+# ---- OCR ----
+if ! command -v tesseract >/dev/null 2>&1; then
+  log "安装 Tesseract OCR..."
+  apt-get update -qq && apt-get install -y -qq tesseract-ocr tesseract-ocr-chi-sim \
+    || log "警告: Tesseract 安装失败，扫描件解析将不可用"
+fi
+
+# ---- Node 运行时 ----
+# apt 源里的 nodejs 是 18，低于 metaphysics-mcp 要求的 >=20，需要 NodeSource。
+NODE_MAJOR=0
+if command -v node >/dev/null 2>&1; then
+  NODE_MAJOR=$(node -v | cut -d. -f1 | tr -d 'v')
+fi
+
+if [ "$NODE_MAJOR" -lt 20 ]; then
+  log "安装 Node.js 20 (当前=${NODE_MAJOR:-无})..."
+  apt-get update -qq
+  apt-get install -y -qq curl ca-certificates gnupg
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    || log "警告: NodeSource 源添加失败"
+  apt-get install -y -qq nodejs \
+    || log "警告: Node.js 安装失败，MCP 工具将不可用"
+fi
+
+# ---- npm registry 镜像 ----
+# 服务器在国内：直连 npmjs.org 冷启动约 14s，npmmirror 约 3.4s。
+# 只影响安装；发布在开发机进行，不受影响。
+NPM_MIRROR=https://registry.npmmirror.com
+if command -v npm >/dev/null 2>&1; then
+  CURRENT_REGISTRY=$(npm config get registry 2>/dev/null || echo "")
+  if [ "$CURRENT_REGISTRY" != "$NPM_MIRROR" ]; then
+    npm config set registry "$NPM_MIRROR" >/dev/null 2>&1 || true
+    log "npm registry -> $NPM_MIRROR"
+  fi
+fi
+
+# ---- MCP 包版本同步 ----
+# 已装版本与 registry latest 不一致时升级，保证重启即拿到新发布。
+# latest 读不到（网络故障）或低于已装版本（镜像同步滞后）时保持现状。
+MCP_PKG=metaphysics-mcp
+MCP_PKG_DIR=/usr/lib/node_modules/$MCP_PKG
+MCP_CHANGED=0
+
+version_gt() {
+  # $1 > $2 时返回 0
+  [ "$1" = "$2" ] && return 1
+  local IFS=.
+  local -a a b
+  read -r -a a <<< "${1%%-*}"
+  read -r -a b <<< "${2%%-*}"
+  local i x y
+  for ((i = 0; i < ${#a[@]} || i < ${#b[@]}; i++)); do
+    x=${a[i]:-0}; y=${b[i]:-0}
+    if ((10#$x > 10#$y)); then return 0; fi
+    if ((10#$x < 10#$y)); then return 1; fi
+  done
+  return 1
+}
+
+if command -v npm >/dev/null 2>&1; then
+  INSTALLED=""
+  if [ -f "$MCP_PKG_DIR/package.json" ]; then
+    INSTALLED=$(node -p "require('$MCP_PKG_DIR/package.json').version" 2>/dev/null || echo "")
+  fi
+  LATEST=$(timeout 25 npm view "$MCP_PKG" version 2>/dev/null | tail -1 || echo "")
+
+  if [ -z "$INSTALLED" ]; then
+    TARGET=${LATEST:-latest}
+    log "安装 $MCP_PKG@$TARGET ..."
+    npm install -g --silent "$MCP_PKG@$TARGET" 2>/dev/null \
+      || npm install -g --silent --registry=https://registry.npmjs.org/ "$MCP_PKG@$TARGET" 2>/dev/null \
+      || log "警告: $MCP_PKG 安装失败，将依赖 npx 现场拉取"
+    MCP_CHANGED=1
+  elif [ -n "$LATEST" ] && version_gt "$LATEST" "$INSTALLED"; then
+    log "升级 $MCP_PKG: $INSTALLED -> $LATEST"
+    if npm install -g --silent "$MCP_PKG@$LATEST" 2>/dev/null \
+      || npm install -g --silent --registry=https://registry.npmjs.org/ "$MCP_PKG@$LATEST" 2>/dev/null; then
+      MCP_CHANGED=1
+    else
+      log "警告: 升级失败，继续使用 $INSTALLED"
+    fi
+  else
+    log "$MCP_PKG 已是最新 (v${INSTALLED:-未知}${LATEST:+, registry=$LATEST})"
+  fi
+fi
+
+# ---- MCP SSE 常驻服务 ----
+# 包有变化时先停旧进程，保证加载的是新代码。
+MCP_SSE_BIN=$MCP_PKG_DIR/dist/server-sse.js
+MCP_SSE_PIDFILE=/var/run/metaphysics-mcp-sse.pid
+
+stop_sse() {
+  if [ -f "$MCP_SSE_PIDFILE" ]; then
+    local pid
+    pid=$(cat "$MCP_SSE_PIDFILE" 2>/dev/null || echo "")
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      sleep 1
+      kill -9 "$pid" 2>/dev/null || true
+      log "MCP SSE 已停止 (pid=$pid)"
+    fi
+    rm -f "$MCP_SSE_PIDFILE"
+  fi
+}
+
+if [ -f "$MCP_SSE_BIN" ]; then
+  if [ "$MCP_CHANGED" = "1" ]; then
+    stop_sse
+  fi
+  if [ -f "$MCP_SSE_PIDFILE" ] && kill -0 "$(cat "$MCP_SSE_PIDFILE")" 2>/dev/null; then
+    log "MCP SSE 已在运行 (pid=$(cat "$MCP_SSE_PIDFILE"))"
+  else
+    mkdir -p /var/log /var/run
+    nohup /usr/bin/node "$MCP_SSE_BIN" >> /var/log/metaphysics-mcp-sse.log 2>&1 &
+    echo $! > "$MCP_SSE_PIDFILE"
+    log "MCP SSE 已启动 (pid=$(cat "$MCP_SSE_PIDFILE"))"
+  fi
+fi
+
+log "node=$(node -v 2>/dev/null || echo 缺失) mcp=$(cat "$MCP_PKG_DIR/package.json" 2>/dev/null | grep -m1 '"version"' | cut -d'"' -f4) tesseract=$(command -v tesseract >/dev/null 2>&1 && echo 有 || echo 无)"
+
+source /.env
+
+eval "$EXEC_SCRIPT"

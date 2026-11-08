@@ -3,6 +3,7 @@ package org.deepstack.ai.knowledge.mapper;
 import org.deepstack.ai.knowledge.model.entity.KnowledgeChunk;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -21,6 +22,22 @@ import java.util.List;
 public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
 
     /**
+     * 批量插入分片。embedding 必须显式转成 pgvector，MyBatis 默认按 VARCHAR 传参。
+     *
+     * @param records 分片列表（id 由调用方预先生成）
+     * @return 插入行数
+     */
+    @Insert({
+            "<script>",
+            "INSERT INTO knowledge_chunk (id, knowledge_base_id, document_id, chunk_index, content, token_count, embedding, metadata) VALUES",
+            "<foreach collection='records' item='r' separator=','>",
+            "(#{r.id}, #{r.knowledgeBaseId}, #{r.documentId}, #{r.chunkIndex}, #{r.content}, #{r.tokenCount}, #{r.embedding}::public.vector, #{r.metadata}::jsonb)",
+            "</foreach>",
+            "</script>"
+    })
+    int insertBatch(@Param("records") List<KnowledgeChunk> records);
+
+    /**
      * 向量相似度检索（cosine 距离）
      * <p>
      * pgvector {@code <=>} 操作符返回 cosine 距离（0=完全相似，2=完全相反）。
@@ -36,7 +53,7 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
             "WHERE c.knowledge_base_id = #{knowledgeBaseId} " +
             "  AND c.is_del = 0 " +
             "  AND c.embedding IS NOT NULL " +
-            "ORDER BY c.embedding <=> #{embeddingVector}::vector " +
+            "ORDER BY c.embedding <=> #{embeddingVector}::public.vector " +
             "LIMIT #{topK}")
     List<KnowledgeChunk> searchByVector(@Param("knowledgeBaseId") Long knowledgeBaseId,
                                         @Param("embeddingVector") String embeddingVector,
@@ -55,9 +72,9 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
             "  AND c.is_del = 0 " +
             "  AND c.embedding IS NOT NULL " +
             "<if test='maxDistance != null'>" +
-            "  AND (c.embedding &lt;=&gt; #{embeddingVector}::vector) &lt;= #{maxDistance} " +
+            "  AND (c.embedding &lt;=&gt; #{embeddingVector}::public.vector) &lt;= #{maxDistance} " +
             "</if>" +
-            "ORDER BY c.embedding &lt;=&gt; #{embeddingVector}::vector " +
+            "ORDER BY c.embedding &lt;=&gt; #{embeddingVector}::public.vector " +
             "LIMIT #{topK}" +
             "</script>")
     List<KnowledgeChunk> searchByVectorWithThreshold(@Param("knowledgeBaseId") Long knowledgeBaseId,

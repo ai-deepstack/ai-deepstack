@@ -104,6 +104,16 @@ public class WorkflowStreamEvent implements Serializable {
         return event;
     }
 
+    /** 构造 LLM 推理内容流事件（reasoning_content 增量）。 */
+    public static WorkflowStreamEvent llmReasoning(String nodeId, String nodeName, String chunk) {
+        WorkflowStreamEvent event = new WorkflowStreamEvent();
+        event.setEventType(WorkflowEventTypes.LLM_REASONING);
+        event.setNodeId(nodeId);
+        event.setNodeName(nodeName);
+        event.setResult(chunk);
+        return event;
+    }
+
     /** 构造卡片流事件。 */
     public static WorkflowStreamEvent card(String nodeId, String nodeName, String cardJson) {
         WorkflowStreamEvent event = new WorkflowStreamEvent();

@@ -10,7 +10,6 @@ import org.deepstack.ai.knowledge.mapper.KnowledgeChunkMapper;
 import org.deepstack.ai.knowledge.mapper.KnowledgeDocumentMapper;
 import org.deepstack.ai.knowledge.service.DocumentProcessor;
 import org.deepstack.ai.knowledge.service.KnowledgeBaseService;
-import org.deepstack.ai.knowledge.service.KnowledgeChunkService;
 import org.deepstack.ai.kernel.enums.knowledge.DocEmbedStatusEnum;
 import org.deepstack.ai.kernel.enums.knowledge.DocParseStatusEnum;
 import org.deepstack.ai.kernel.enums.knowledge.DocSourceTypeEnum;
@@ -20,8 +19,15 @@ import org.deepstack.ai.kernel.exception.BusinessException;
 import org.deepstack.ai.storage.FileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.tika.Tika;
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.parser.AutoDetectParser;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.parser.ocr.TesseractOCRConfig;
+import org.apache.tika.parser.pdf.PDFParserConfig;
+import org.apache.tika.sax.BodyContentHandler;
+import org.xml.sax.SAXException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.ai.embedding.EmbeddingRequest;
@@ -31,6 +37,7 @@ import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,11 +68,12 @@ public class DocumentProcessorImpl implements DocumentProcessor {
     private static final int URL_TIMEOUT_MS = 15000;
 
     /** 单批 embedding 最大文本数（智谱 / OpenAI 通常支持 64 ~ 100） */
-    private static final int EMBED_BATCH_SIZE = 32;
+    /** 单次 embedding 请求的分片数；DashScope text-embedding-v4 上限为 10 */
+    @Value("${deepstack.kb.embed-batch-size:10}")
+    private int embedBatchSize;
 
     private final KnowledgeDocumentMapper knowledgeDocumentMapper;
     private final KnowledgeChunkMapper knowledgeChunkMapper;
-    private final KnowledgeChunkService knowledgeChunkService;
     private final KnowledgeBaseService knowledgeBaseService;
     private final EmbeddingClientFactory embeddingClientFactory;
     private final FileService fileService;
@@ -77,7 +85,7 @@ public class DocumentProcessorImpl implements DocumentProcessor {
     @Value("${deepstack.kb.bucket:#{null}}")
     private String kbBucket;
 
-    private final Tika tika = new Tika();
+    private final AutoDetectParser tikaParser = new AutoDetectParser();
 
     /**
      * 异步处理文档：解析 → 切片 → embedding → 写库，失败时标记 FAILED。
@@ -103,7 +111,9 @@ public class DocumentProcessorImpl implements DocumentProcessor {
             // 1. 解析（按需）
             String rawContent = ensureRawContent(doc);
             if (rawContent == null || rawContent.trim().isEmpty()) {
-                updateFailed(doc, "解析后内容为空");
+                // 解析阶段已结束但无文本：明确标记为解析失败，避免看起来像 embedding 失败
+                doc.setParseStatus(DocParseStatusEnum.FAILED.getCode());
+                updateFailed(doc, "解析后内容为空（可能是扫描件/图片 PDF，OCR 后仍无文本）");
                 return;
             }
 
@@ -170,6 +180,14 @@ public class DocumentProcessorImpl implements DocumentProcessor {
             return doc.getRawContent();
         }
 
+        // 已解析过（如 reembed 重试）直接复用，避免扫描件重复 OCR
+        if (StringUtils.hasText(doc.getRawContent())
+                && Objects.equals(doc.getParseStatus(), DocParseStatusEnum.PARSED.getCode())) {
+            log.info("ensureRawContent 复用已解析内容: docId={}, len={}",
+                    doc.getId(), doc.getRawContent().length());
+            return doc.getRawContent();
+        }
+
         // 状态置为 PARSING
         log.info("ensureRawContent parsing: docId={}, sourceType={}", doc.getId(), doc.getSourceType());
         doc.setParseStatus(DocParseStatusEnum.PARSING.getCode());
@@ -210,8 +228,35 @@ public class DocumentProcessorImpl implements DocumentProcessor {
         String bucket = resolveKbBucket();
         log.info("parseFileFromOss: docId={}, bucket={}, fileKey={}", doc.getId(), bucket, fileKey);
         try (InputStream in = fileService.download(bucket, fileKey)) {
-            return tika.parseToString(in);
+            return parseWithOcr(in);
         }
+    }
+
+    /**
+     * 用 Tika 解析并启用 OCR：扫描件/图片 PDF 在文本层为空时自动用 Tesseract 识别。
+     * <p>需要运行环境安装 {@code tesseract-ocr} 与中文语言包 {@code tesseract-ocr-chi-sim}。</p>
+     */
+    private String parseWithOcr(InputStream in) throws IOException, TikaException {
+        BodyContentHandler handler = new BodyContentHandler(-1);
+        Metadata metadata = new Metadata();
+        ParseContext context = new ParseContext();
+
+        PDFParserConfig pdfConfig = new PDFParserConfig();
+        // AUTO：页面文本不足时自动 OCR，普通文本 PDF 不会额外走 OCR
+        pdfConfig.setOcrStrategy(PDFParserConfig.OCR_STRATEGY.AUTO);
+        context.set(PDFParserConfig.class, pdfConfig);
+
+        TesseractOCRConfig ocrConfig = new TesseractOCRConfig();
+        ocrConfig.setLanguage("chi_sim+eng");
+        context.set(TesseractOCRConfig.class, ocrConfig);
+
+        context.set(Parser.class, tikaParser);
+        try {
+            tikaParser.parse(in, handler, metadata, context);
+        } catch (SAXException e) {
+            throw new TikaException("Tika parse failed", e);
+        }
+        return handler.toString();
     }
 
     /**
@@ -294,9 +339,9 @@ public class DocumentProcessorImpl implements DocumentProcessor {
                              List<String> chunks, OpenAiEmbeddingModel embeddingModel) {
         int totalSaved = 0;
         log.info("embedAndSave start: docId={}, kbId={}, chunks={}, batchSize={}",
-                doc.getId(), kb.getId(), chunks.size(), EMBED_BATCH_SIZE);
-        for (int batchStart = 0; batchStart < chunks.size(); batchStart += EMBED_BATCH_SIZE) {
-            int batchEnd = Math.min(batchStart + EMBED_BATCH_SIZE, chunks.size());
+                doc.getId(), kb.getId(), chunks.size(), embedBatchSize);
+        for (int batchStart = 0; batchStart < chunks.size(); batchStart += embedBatchSize) {
+            int batchEnd = Math.min(batchStart + embedBatchSize, chunks.size());
             List<String> batch = chunks.subList(batchStart, batchEnd);
             log.debug("embedAndSave batch: docId={}, range=[{}, {})", doc.getId(), batchStart, batchEnd);
 
@@ -315,6 +360,7 @@ public class DocumentProcessorImpl implements DocumentProcessor {
                 float[] vector = response.getResults().get(i).getOutput();
 
                 KnowledgeChunk chunk = new KnowledgeChunk();
+                chunk.setId(com.baomidou.mybatisplus.core.toolkit.IdWorker.getId());
                 chunk.setKnowledgeBaseId(kb.getId());
                 chunk.setDocumentId(doc.getId());
                 chunk.setChunkIndex(batchStart + i);
@@ -324,11 +370,11 @@ public class DocumentProcessorImpl implements DocumentProcessor {
                 chunk.setMetadata(null);
                 toSave.add(chunk);
             }
-            // MyBatis-Plus 批量插入（JDBC batch），比逐条 insert 少往返
-            boolean ok = knowledgeChunkService.saveBatch(toSave, toSave.size());
-            if (!ok) {
-                throw new IllegalStateException("chunk saveBatch 失败: docId=" + doc.getId()
-                        + ", range=[" + batchStart + ", " + batchEnd + ")");
+            // 自定义批量插入：embedding 显式 ::public.vector，避免 MyBatis 按 VARCHAR 传参
+            int inserted = knowledgeChunkMapper.insertBatch(toSave);
+            if (inserted != toSave.size()) {
+                throw new IllegalStateException("chunk insertBatch 失败: docId=" + doc.getId()
+                        + ", expect=" + toSave.size() + ", actual=" + inserted);
             }
             totalSaved += toSave.size();
             log.info("embedAndSave batch saved: docId={}, range=[{}, {}), size={}",

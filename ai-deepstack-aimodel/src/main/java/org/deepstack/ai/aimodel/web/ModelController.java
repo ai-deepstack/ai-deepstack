@@ -2,20 +2,27 @@ package org.deepstack.ai.aimodel.web;
 
 import org.deepstack.ai.aimodel.model.dto.request.AiModelCreateRequest;
 import org.deepstack.ai.aimodel.model.dto.request.AiModelPageRequest;
+import org.deepstack.ai.aimodel.model.dto.request.AiModelTestRequest;
 import org.deepstack.ai.aimodel.model.dto.request.AiModelUpdateRequest;
 import org.deepstack.ai.aimodel.model.dto.request.ApiKeyUpdateRequest;
 import org.deepstack.ai.aimodel.model.dto.response.AiModelResponse;
+import org.deepstack.ai.aimodel.model.dto.response.ModelTestResult;
 import org.deepstack.ai.kernel.auth.LoginUser;
 import org.deepstack.ai.kernel.common.PageInfoUtils;
 import org.deepstack.ai.aimodel.model.entity.AiModel;
 import org.deepstack.ai.aimodel.service.AiModelService;
+import org.deepstack.ai.aimodel.service.ModelTestService;
+import org.deepstack.ai.kernel.enums.common.CommonErrorCode;
 import org.deepstack.ai.kernel.enums.common.EnabledStatusEnum;
+import org.deepstack.ai.kernel.enums.model.ModelTypeEnum;
+import org.deepstack.ai.kernel.exception.BusinessException;
 import org.deepstack.ai.kernel.model.AppUserInfo;
 import org.deepstack.ai.kernel.model.PageInfo;
 import org.deepstack.ai.kernel.model.Response;
 import org.deepstack.ai.kernel.model.SelectOption;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,6 +50,7 @@ import java.util.List;
 public class ModelController {
 
     private final AiModelService aiModelService;
+    private final ModelTestService modelTestService;
 
     /**
      * 分页查询模型列表（按可见性过滤）。
@@ -114,6 +122,63 @@ public class ModelController {
                 loginUser != null ? loginUser.getUserId() : null);
         aiModelService.create(req, loginUser);
         return Response.success();
+    }
+
+    /**
+     * 测试模型接口是否可用（真实最小调用）。
+     * <p>传 id 测已保存配置；带上表单字段可覆盖，用于测试未保存的修改。
+     * 接口不可用时仍返回 200，由 {@code ok=false} 与 message 说明原因。</p>
+     *
+     * @param req       测试请求（id 或临时配置）
+     * @param loginUser 当前登录用户
+     * @return 测试结果
+     */
+    @PostMapping("/test")
+    public Response<ModelTestResult> test(@RequestBody AiModelTestRequest req,
+                                          @LoginUser AppUserInfo loginUser) {
+        log.info("测试模型连通性: id={}, modelType={}, baseUrl={}, userId={}",
+                req != null ? req.getId() : null,
+                req != null ? req.getModelType() : null,
+                req != null ? req.getBaseUrl() : null,
+                loginUser != null ? loginUser.getUserId() : null);
+        return Response.success(modelTestService.test(resolveTestConfig(req, loginUser)));
+    }
+
+    /**
+     * 合并库中配置与本次表单覆盖值，得到实际要测试的配置。
+     */
+    private AiModel resolveTestConfig(AiModelTestRequest req, AppUserInfo loginUser) {
+        if (req == null) {
+            throw new BusinessException(CommonErrorCode.MISSING_PARAM);
+        }
+        AiModel entity;
+        if (req.getId() != null) {
+            entity = aiModelService.getById(req.getId());
+            if (entity == null) {
+                throw new BusinessException(CommonErrorCode.NOT_FOUND.getCode(), "模型不存在: id=" + req.getId());
+            }
+            if (!aiModelService.canSeeApiKey(entity, loginUser)) {
+                throw new BusinessException(CommonErrorCode.UNAUTHORIZED.getCode(), "无权测试该模型");
+            }
+        } else {
+            entity = new AiModel();
+            entity.setModelCode("unsaved");
+        }
+        if (req.getModelType() != null) entity.setModelType(req.getModelType());
+        if (StringUtils.hasText(req.getModelCode())) entity.setModelCode(req.getModelCode());
+        if (StringUtils.hasText(req.getBaseUrl())) entity.setBaseUrl(req.getBaseUrl());
+        if (StringUtils.hasText(req.getApiModelName())) entity.setApiModelName(req.getApiModelName());
+        if (req.getCustomHeaders() != null) entity.setCustomHeaders(req.getCustomHeaders());
+        if (StringUtils.hasText(req.getApiKey())) entity.setApiKey(req.getApiKey());
+
+        if (ModelTypeEnum.of(entity.getModelType()) == null
+                || !StringUtils.hasText(entity.getBaseUrl())
+                || !StringUtils.hasText(entity.getApiModelName())
+                || !StringUtils.hasText(entity.getApiKey())) {
+            throw new BusinessException(CommonErrorCode.INVALID_PARAM.getCode(),
+                    "modelType / baseUrl / apiModelName / apiKey 不能为空");
+        }
+        return entity;
     }
 
     /**
@@ -207,6 +272,7 @@ public class ModelController {
         r.setApiKey(aiModelService.canSeeApiKey(m, loginUser) ? maskApiKey(m.getApiKey()) : "");
         r.setApiModelName(m.getApiModelName());
         r.setExtraJson(m.getExtraJson());
+        r.setCustomHeaders(m.getCustomHeaders());
         r.setEnabled(m.getEnabled());
         r.setEnabledName(EnabledStatusEnum.labelOf(m.getEnabled()));
         r.setVisibility(m.getVisibility());

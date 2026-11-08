@@ -12,6 +12,7 @@
         <result property="apiKey" column="api_key"/>
         <result property="apiModelName" column="api_model_name"/>
         <result property="extraJson" column="extra_json"/>
+        <result property="customHeaders" column="custom_headers"/>
         <result property="enabled" column="enabled"/>
         <result property="remark" column="remark"/>
         <result property="isDel" column="is_del"/>
@@ -24,7 +25,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, model_code, model_name, model_type, provider, base_url, api_key, api_model_name, extra_json, enabled, remark, is_del, creator_id, creator, modifier_id, modifier, create_time, update_time
+        id, model_code, model_name, model_type, provider, base_url, api_key, api_model_name, extra_json, custom_headers, enabled, remark, is_del, creator_id, creator, modifier_id, modifier, create_time, update_time
     </sql>
 
 </mapper>

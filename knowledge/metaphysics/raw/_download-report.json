@@ -1,0 +1,158 @@
+[
+  {
+    "title": "梅花易數",
+    "missing": false,
+    "chars": 3704,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\梅花易數.txt"
+  },
+  {
+    "title": "梅花易數/卷一",
+    "missing": false,
+    "chars": 11638,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\梅花易數_卷一.txt"
+  },
+  {
+    "title": "梅花易數/卷二",
+    "missing": false,
+    "chars": 16012,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\梅花易數_卷二.txt"
+  },
+  {
+    "title": "梅花易數/卷三",
+    "missing": false,
+    "chars": 10482,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\梅花易數_卷三.txt"
+  },
+  {
+    "title": "滴天髓",
+    "missing": false,
+    "chars": 17164,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\滴天髓.txt"
+  },
+  {
+    "title": "增刪卜易",
+    "missing": false,
+    "chars": 130836,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\增刪卜易.txt"
+  },
+  {
+    "title": "卜筮正宗",
+    "missing": false,
+    "chars": 148,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\卜筮正宗.txt"
+  },
+  {
+    "title": "三命通會/卷一",
+    "missing": false,
+    "chars": 27063,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\三命通會_卷一.txt"
+  },
+  {
+    "title": "三命通會/卷二",
+    "missing": false,
+    "chars": 22906,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\三命通會_卷二.txt"
+  },
+  {
+    "title": "三命通會/卷三",
+    "missing": false,
+    "chars": 22433,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\三命通會_卷三.txt"
+  },
+  {
+    "title": "三命通會/卷四",
+    "missing": false,
+    "chars": 14765,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\三命通會_卷四.txt"
+  },
+  {
+    "title": "三命通會/卷五",
+    "missing": false,
+    "chars": 10540,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\三命通會_卷五.txt"
+  },
+  {
+    "title": "三命通會/卷六",
+    "missing": false,
+    "chars": 36188,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\三命通會_卷六.txt"
+  },
+  {
+    "title": "三命通會/卷七",
+    "missing": false,
+    "chars": 14270,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\三命通會_卷七.txt"
+  },
+  {
+    "title": "三命通會/卷八",
+    "missing": false,
+    "chars": 29545,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\三命通會_卷八.txt"
+  },
+  {
+    "title": "三命通會/卷九",
+    "missing": false,
+    "chars": 29754,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\三命通會_卷九.txt"
+  },
+  {
+    "title": "淵海子平",
+    "missing": false,
+    "chars": 59011,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\淵海子平.txt"
+  },
+  {
+    "title": "易傳/繫辭上",
+    "missing": false,
+    "chars": 3017,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\易傳_繫辭上.txt"
+  },
+  {
+    "title": "易傳/繫辭下",
+    "missing": false,
+    "chars": 2841,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\易傳_繫辭下.txt"
+  },
+  {
+    "title": "易傳/說卦",
+    "missing": false,
+    "chars": 1444,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\易傳_說卦.txt"
+  },
+  {
+    "title": "易傳/序卦",
+    "error": "Error: HTTP 429"
+  },
+  {
+    "title": "易傳/雜卦",
+    "error": "Error: HTTP 429"
+  },
+  {
+    "title": "奇門遁甲統宗",
+    "error": "TypeError: fetch failed"
+  },
+  {
+    "title": "奇門遁甲元靈經",
+    "missing": false,
+    "chars": 37755,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\奇門遁甲元靈經.txt"
+  },
+  {
+    "title": "遁甲演義",
+    "missing": false,
+    "chars": 42580,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\遁甲演義.txt"
+  },
+  {
+    "title": "煙波釣叟歌",
+    "missing": false,
+    "chars": 0,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\煙波釣叟歌.txt"
+  },
+  {
+    "title": "協紀辨方書",
+    "missing": true,
+    "chars": 0,
+    "file": "E:\\tutorials\\ai-deepstack\\knowledge\\metaphysics\\raw\\協紀辨方書.txt"
+  }
+]

@@ -32,7 +32,20 @@
             :class="m.role === 'user' ? 'msg-user' : 'msg-assistant'"
           >
             <div class="msg-meta">{{ m.role === 'user' ? 'You' : 'AI DeepStack' }}</div>
-            <div class="msg-bubble" :class="{ typing: m.streaming && !m.content }">{{ m.content }}</div>
+            <div v-if="m.reasoning" class="msg-reasoning">
+              <button class="msg-reasoning-head" type="button" @click="m.reasoningOpen = !m.reasoningOpen">
+                <span>{{ m.streaming && !m.content ? '思考中…' : '思考过程' }}</span>
+                <span class="muted">{{ m.reasoningOpen ? '收起' : '展开' }}</span>
+              </button>
+              <pre v-show="m.reasoningOpen" class="msg-reasoning-body">{{ m.reasoning }}</pre>
+            </div>
+            <div class="msg-bubble" v-if="m.role === 'user'">{{ m.content }}</div>
+            <div
+              v-else
+              class="msg-bubble markdown-body"
+              :class="{ typing: m.streaming && !m.content }"
+              v-html="renderMarkdown(m.content)"
+            ></div>
             <div v-for="(c, ci) in m.cards || []" :key="ci">
               <GenericConfirmCard
                 v-if="c.cardType === CardType.GENERIC_CONFIRM"
@@ -80,7 +93,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { post } from '../api/http'
 import { streamSse, tryParseJson } from '../api/sse'
 import GenericConfirmCard from './GenericConfirmCard.vue'
@@ -92,6 +105,7 @@ import {
   toCardActionCode
 } from '../constants/enums'
 import { AgentRunUsageKeys, CardStatusFields, CardStatusPhases, ChatSseEvents } from '../constants/sseEvents'
+import { renderMarkdown } from '../utils/markdown'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -188,7 +202,7 @@ async function sendStream() {
   error.value = ''
   usage.value = null
   messages.value.push({ role: 'user', content: text })
-  const assistant = { role: 'assistant', content: '', cards: [], streaming: true }
+  const assistant = reactive({ role: 'assistant', content: '', reasoning: '', reasoningOpen: true, cards: [], streaming: true })
   messages.value.push(assistant)
   streaming.value = true
   abortCtrl = new AbortController()
@@ -220,6 +234,10 @@ function handleFrame({ event, data }, assistant) {
 
   if (event === E.CONVERSATION) {
     conversationId.value = typeof parsed === 'string' ? parsed : (parsed?.conversationId || data)
+    return
+  }
+  if (event === E.REASONING) {
+    assistant.reasoning += typeof parsed === 'string' ? parsed : data
     return
   }
   if (event === E.USAGE) {
@@ -261,6 +279,7 @@ function appendText(assistant, parsed, raw) {
   if (parsed && typeof parsed === 'object') {
     const chunk = parsed.content ?? parsed.delta ?? parsed.text ?? parsed.result
     if (chunk != null) {
+      if (!assistant.content && assistant.reasoning) assistant.reasoningOpen = false
       assistant.content += String(chunk)
       return
     }

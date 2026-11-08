@@ -24,9 +24,9 @@ public interface ChatMemoryMapper extends BaseMapper<ChatMemoryRecord> {
      */
     @Insert({
             "<script>",
-            "INSERT INTO chat_memory (conversation_id, message_type, content, seq) VALUES",
+            "INSERT INTO chat_memory (id, conversation_id, message_type, content, seq) VALUES",
             "<foreach collection='records' item='r' separator=','>",
-            "(#{r.conversationId}, #{r.messageType}, #{r.content}, #{r.seq})",
+            "(#{r.id}, #{r.conversationId}, #{r.messageType}, #{r.content}, #{r.seq})",
             "</foreach>",
             "</script>"
     })

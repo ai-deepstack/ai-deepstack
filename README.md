@@ -51,6 +51,14 @@ WHERE model_code = 'demo-openai-chat';
 
 知识库还要一条 `model_type = 1`（EMBEDDING）的模型，并把 `knowledge_base.embedding_model_code` 指过去。CHAT 是 `0`。
 
+上游需要额外请求头时（如 OpenCode Go 的 `x-opencode-session`），在控制台模型编辑的「自定义请求头」填 JSON 对象，或直接写 `ai_model.custom_headers`：
+
+```sql
+UPDATE deepstack.ai_model
+SET custom_headers = '{"x-opencode-session":"deepstack"}'
+WHERE model_code = 'your-model-code';
+```
+
 ```bash
 mvn -DskipTests -Pfrontend package
 java -jar ai-deepstack-app/target/ai-deepstack-app-0.1.0.jar
@@ -83,11 +91,14 @@ JDBC 固定 `currentSchema=deepstack`。默认用 P6Spy 打单行 SQL（`spy.pro
 | `DEEPSTACK_REDIS_PASSWORD`               | 空                                     | 可选                    |
 | `DEEPSTACK_JWT_SECRET`                   | 开发占位                                  | 生产必须换                 |
 | `DEEPSTACK_JWT_EXPIRE_HOURS`             | `72`                                  | Token 有效期             |
-| `DEEPSTACK_S3_ENDPOINT`                  | `http://127.0.0.1:9000`               | S3 Endpoint           |
+| `DEEPSTACK_S3_ENDPOINT`                  | `http://127.0.0.1:9000`               | S3 Endpoint（Java 读写走这里） |
+| `DEEPSTACK_S3_PUBLIC_ENDPOINT`           | 空                                     | 公网访问域名；空则沿用 `DEEPSTACK_S3_ENDPOINT` |
+| `DEEPSTACK_S3_PRESIGN_EXPIRY`            | `7d`                                   | 预签名 URL 有效期（最长 7 天） |
 | `DEEPSTACK_S3_ACCESS_KEY` / `SECRET_KEY` | `deepstack` / `deepstack123`          | 访问密钥                  |
 | `DEEPSTACK_S3_DEFAULT_BUCKET`            | `ai-deepstack`                        | 默认桶                   |
 | `DEEPSTACK_S3_PATH_STYLE`                | `true`                                | 本地 MinIO 用 path-style |
 | `DEEPSTACK_KB_BUCKET`                    | `ai-deepstack-kb`                     | 知识库文档桶                |
+| `DEEPSTACK_KB_EMBED_BATCH_SIZE`          | `10`                                   | 单次 embedding 分片数（DashScope 上限 10） |
 | `DEEPSTACK_MCP_ENABLED`                  | `true`                                | MCP 运行时               |
 | `DEEPSTACK_TOOLS_DISCLOSURE_MODE`        | `off`                                 | `off` 或 `progressive` |
 | `DEEPSTACK_GRAPH_ENABLED`                | `false`                               | Apache AGE 知识图谱       |

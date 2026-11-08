@@ -18,6 +18,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -116,6 +117,7 @@ public class AiChatClientFactory {
                 + safeHash(config.getBaseUrl())
                 + ":" + safeHash(config.getApiKey())
                 + ":" + safeHash(config.getApiModelName())
+                + ":" + safeHash(config.getCustomHeaders())
                 + ":" + resolveConnectTimeoutMs()
                 + ":" + resolveReadTimeoutMs();
     }
@@ -137,20 +139,23 @@ public class AiChatClientFactory {
                 SysConfigKeys.LLM_READ_TIMEOUT_MS, llmProperties.getReadTimeoutMs()));
     }
 
-    /** 按模型配置构建 Chat 客户端。 */
-    private OpenAiChatModel buildChatModel(AiModel config) {
+    /** 按模型配置构建 Chat 客户端；包内可见，供连通性测试复用同一套参数。 */
+    OpenAiChatModel buildChatModel(AiModel config) {
         int connectMs = resolveConnectTimeoutMs();
         int readMs = resolveReadTimeoutMs();
         log.info("Building OpenAiChatModel: modelCode={}, provider={}, baseUrl={}, apiModelName={}, connectMs={}, readMs={}",
                 config.getModelCode(), config.getProvider(), config.getBaseUrl(),
                 config.getApiModelName(), connectMs, readMs);
 
-        OpenAiChatOptions options = OpenAiChatOptions.builder()
+        OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder()
                 .baseUrl(config.getBaseUrl())
                 .apiKey(config.getApiKey())
                 .model(config.getApiModelName())
-                .timeout(Duration.ofMillis(readMs))
-                .build();
+                .timeout(Duration.ofMillis(readMs));
+        Map<String, String> customHeaders = ModelCustomHeaders.parse(config);
+        if (!customHeaders.isEmpty()) {
+            optionsBuilder.customHeaders(customHeaders);
+        }
 
         OpenAiHttpClientBuilderCustomizer timeouts = builder -> builder.timeout(
                 Timeout.builder()
@@ -160,7 +165,7 @@ public class AiChatClientFactory {
                         .build());
 
         return OpenAiChatModel.builder()
-                .options(options)
+                .options(optionsBuilder.build())
                 .httpClientBuilderCustomizer(timeouts)
                 .build();
     }

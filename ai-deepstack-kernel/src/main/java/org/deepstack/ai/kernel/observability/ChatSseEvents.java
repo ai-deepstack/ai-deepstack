@@ -9,6 +9,8 @@ public final class ChatSseEvents {
     public static final String CONVERSATION = "conversation";
     /** LLM 文本 chunk。 */
     public static final String MESSAGE = "message";
+    /** 推理模型思考内容增量（reasoning_content）。 */
+    public static final String REASONING = "reasoning";
     /** 交互卡片 JSON。 */
     public static final String CARD = "card";
     /** 卡片生命周期状态。 */

@@ -45,7 +45,7 @@ export async function* streamSse(path, body, opts = {}) {
         for (const raw of part.split(/\n/)) {
           const line = raw.replace(/\r$/, '')
           if (line.startsWith('event:')) event = line.slice(6).trim()
-          else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
+          else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''))
         }
         yield { event, data: dataLines.join('\n') }
       }

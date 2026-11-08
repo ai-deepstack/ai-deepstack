@@ -46,6 +46,10 @@
       <artifactId>ai-deepstack-knowledge</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.deepstack.ai</groupId>
+      <artifactId>ai-deepstack-storage</artifactId>
+    </dependency>
+    <dependency>
       <groupId>com.alibaba.fastjson2</groupId>
       <artifactId>fastjson2</artifactId>
     </dependency>

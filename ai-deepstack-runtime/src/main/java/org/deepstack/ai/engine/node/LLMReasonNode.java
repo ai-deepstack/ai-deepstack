@@ -338,6 +338,7 @@ public class LLMReasonNode implements AsyncNodeAction<WorkflowState> {
             long roundStreamStart = System.nanoTime();
             java.util.concurrent.atomic.AtomicLong roundFirstChunkRef = new java.util.concurrent.atomic.AtomicLong(-1);
             java.util.concurrent.atomic.AtomicInteger roundChunkCountRef = new java.util.concurrent.atomic.AtomicInteger(0);
+            java.util.concurrent.atomic.AtomicInteger roundReasoningLenRef = new java.util.concurrent.atomic.AtomicInteger(0);
             try {
                 chatModel.stream(prompt)
                         .doOnNext(cr -> {
@@ -347,6 +348,21 @@ public class LLMReasonNode implements AsyncNodeAction<WorkflowState> {
                             roundResponses.add(cr);
                             if (chunkHasToolCalls(cr)) {
                                 sawToolCall.set(true);
+                            }
+                            // 推理模型先流 reasoning_content：按累计值取增量，实时推送
+                            String reasoning = extractReasoning(cr);
+                            int seenReasoning = roundReasoningLenRef.get();
+                            if (reasoning.length() > seenReasoning) {
+                                String reasoningDelta = reasoning.substring(seenReasoning);
+                                roundReasoningLenRef.set(reasoning.length());
+                                if (driveStream && sink != null && nodeId != null) {
+                                    try {
+                                        sink.tryEmitNext(WorkflowStreamEvent.llmReasoning(
+                                                nodeId, nodeName, reasoningDelta));
+                                    } catch (Exception e) {
+                                        log.debug("Failed to emit LLM reasoning chunk: {}", e.getMessage());
+                                    }
+                                }
                             }
                             String chunk = extractText(cr);
                             if (chunk.isEmpty()) {
@@ -609,6 +625,19 @@ public class LLMReasonNode implements AsyncNodeAction<WorkflowState> {
         }
         String t = cr.getResult().getOutput().getText();
         return t != null ? t : "";
+    }
+
+    /**
+     * 从流式 {@link ChatResponse} chunk 中提取累计推理内容（reasoning_content）。
+     * 非推理模型返回空串。
+     */
+    private String extractReasoning(ChatResponse cr) {
+        if (cr == null || cr.getResult() == null || cr.getResult().getOutput() == null) {
+            return "";
+        }
+        Map<String, Object> metadata = cr.getResult().getOutput().getMetadata();
+        Object reasoning = metadata != null ? metadata.get("reasoningContent") : null;
+        return reasoning instanceof String s ? s : "";
     }
 
     /**

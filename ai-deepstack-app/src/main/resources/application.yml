@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: ai-deepstack-app
+  servlet:
+    multipart:
+      # 知识库文档等上传上限；可由环境变量覆盖
+      max-file-size: ${DEEPSTACK_UPLOAD_MAX_FILE_SIZE:50MB}
+      max-request-size: ${DEEPSTACK_UPLOAD_MAX_REQUEST_SIZE:60MB}
   datasource:
     # 启用 p6spy: driver=P6SpyDriver, url 前缀 jdbc:p6spy:postgresql://
     # 关闭 p6spy: driver=org.postgresql.Driver, url 前缀 jdbc:postgresql://
@@ -48,6 +53,10 @@ deepstack:
   # S3 协议对象存储
   s3:
     endpoint: ${DEEPSTACK_S3_ENDPOINT:http://127.0.0.1:9000}
+    # 公网访问地址（可选）；留空则对象 URL 沿用 endpoint。S3 客户端始终走 endpoint
+    public-endpoint: ${DEEPSTACK_S3_PUBLIC_ENDPOINT:}
+    # 预签名 URL 有效期（SigV4 最长 7 天）
+    presign-expiry: ${DEEPSTACK_S3_PRESIGN_EXPIRY:7d}
     region: ${DEEPSTACK_S3_REGION:us-east-1}
     access-key-id: ${DEEPSTACK_S3_ACCESS_KEY:deepstack}
     secret-access-key: ${DEEPSTACK_S3_SECRET_KEY:deepstack123}
@@ -59,6 +68,8 @@ deepstack:
   kb:
     # 知识库文档桶；空则使用 deepstack.s3.default-bucket
     bucket: ${DEEPSTACK_KB_BUCKET:ai-deepstack-kb}
+    # 单次 embedding 请求的分片数；DashScope text-embedding-v4 上限为 10
+    embed-batch-size: ${DEEPSTACK_KB_EMBED_BATCH_SIZE:10}
   # 知识图谱（SPI；实现包 ai-deepstack-graph-age）。运营总开关在 sys_config graph.enabled（0/1）；
   # 此处 enabled 仅作未建库时的 yml 兜底。provider / age.* 仍为部署期配置。
   graph:

@@ -17,6 +17,7 @@ import org.springframework.ai.openai.http.okhttp.OpenAiHttpClientBuilderCustomiz
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -96,6 +97,7 @@ public class EmbeddingClientFactory {
                 + safeHash(config.getBaseUrl())
                 + ":" + safeHash(config.getApiKey())
                 + ":" + safeHash(config.getApiModelName())
+                + ":" + safeHash(config.getCustomHeaders())
                 + ":" + resolveConnectTimeoutMs()
                 + ":" + resolveReadTimeoutMs();
     }
@@ -117,21 +119,24 @@ public class EmbeddingClientFactory {
                 SysConfigKeys.LLM_READ_TIMEOUT_MS, llmProperties.getReadTimeoutMs()));
     }
 
-    /** 按模型配置构建 Embedding 客户端。 */
-    private OpenAiEmbeddingModel buildEmbeddingModel(AiModel config) {
+    /** 按模型配置构建 Embedding 客户端；包内可见，供连通性测试复用同一套参数。 */
+    OpenAiEmbeddingModel buildEmbeddingModel(AiModel config) {
         int connectMs = resolveConnectTimeoutMs();
         int readMs = resolveReadTimeoutMs();
         log.info("Building OpenAiEmbeddingModel: modelCode={}, provider={}, baseUrl={}, apiModelName={}, dimensions={}, connectMs={}, readMs={}",
                 config.getModelCode(), config.getProvider(), config.getBaseUrl(),
                 config.getApiModelName(), FIXED_DIMENSIONS, connectMs, readMs);
 
-        OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()
+        OpenAiEmbeddingOptions.Builder optionsBuilder = OpenAiEmbeddingOptions.builder()
                 .baseUrl(config.getBaseUrl())
                 .apiKey(config.getApiKey())
                 .model(config.getApiModelName())
                 .dimensions(FIXED_DIMENSIONS)
-                .timeout(Duration.ofMillis(readMs))
-                .build();
+                .timeout(Duration.ofMillis(readMs));
+        Map<String, String> customHeaders = ModelCustomHeaders.parse(config);
+        if (!customHeaders.isEmpty()) {
+            optionsBuilder.customHeaders(customHeaders);
+        }
 
         OpenAiHttpClientBuilderCustomizer timeouts = builder -> builder.timeout(
                 Timeout.builder()
@@ -141,7 +146,7 @@ public class EmbeddingClientFactory {
                         .build());
 
         return OpenAiEmbeddingModel.builder()
-                .options(options)
+                .options(optionsBuilder.build())
                 .httpClientBuilderCustomizer(timeouts)
                 .build();
     }

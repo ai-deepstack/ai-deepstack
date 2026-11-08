@@ -60,6 +60,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -245,6 +246,8 @@ public class ChatServiceImpl implements ChatService {
         AtomicLong firstTokenMs = new AtomicLong(0);
         AtomicReference<ChatResponseMetadata> lastMetadata = new AtomicReference<>();
         AtomicReference<StringBuilder> contentBuf = new AtomicReference<>(new StringBuilder());
+        AtomicInteger reasoningLen = new AtomicInteger(0);
+        AtomicInteger reasoningChunks = new AtomicInteger(0);
         java.util.concurrent.atomic.AtomicBoolean runDone = new java.util.concurrent.atomic.AtomicBoolean(false);
         long llmStart = System.currentTimeMillis();
 
@@ -254,10 +257,12 @@ public class ChatServiceImpl implements ChatService {
 
         ChatClient.ChatClientRequestSpec requestSpec = buildRequestSpec(ctx, request, cardEmitter);
 
-        return requestSpec
+        return Flux.concat(
+                Flux.just(ChatSse.of(ChatSseEvents.CONVERSATION, ctx.conversationId)),
+                requestSpec
                 .stream()
                 .chatResponse()
-                .map(aiResp -> {
+                .concatMap(aiResp -> {
                     if (aiResp.getMetadata() != null) {
                         lastMetadata.set(aiResp.getMetadata());
                     }
@@ -268,15 +273,24 @@ public class ChatServiceImpl implements ChatService {
                         log.info("Chat stream first chunk received: conversationId={}", ctx.conversationId);
                     }
 
-                    String text = "";
-                    if (aiResp.getResult() != null && aiResp.getResult().getOutput() != null) {
-                        text = aiResp.getResult().getOutput().getText();
-                        if (text == null) text = "";
+                    List<ServerSentEvent<String>> frames = new ArrayList<>(2);
+
+                    // 推理模型先流 reasoning_content：按累计值取增量，作为独立事件透传
+                    String reasoning = extractReasoning(aiResp);
+                    int seen = reasoningLen.get();
+                    if (reasoning.length() > seen) {
+                        String delta = reasoning.substring(seen);
+                        reasoningLen.set(reasoning.length());
+                        reasoningChunks.incrementAndGet();
+                        frames.add(ChatSse.of(ChatSseEvents.REASONING, delta));
                     }
+
+                    String text = extractText(aiResp);
                     if (!text.isEmpty()) {
                         contentBuf.get().append(text);
+                        frames.add(ChatSse.data(text));
                     }
-                    return ChatSse.data(text);
+                    return Flux.fromIterable(frames);
                 })
                 .concatWith(Flux.defer(() -> {
                     java.util.List<ServerSentEvent<String>> tail = new java.util.ArrayList<>();
@@ -330,8 +344,9 @@ public class ChatServiceImpl implements ChatService {
                                 ctx.modelConfig.getProvider(), ctx.modelConfig.getApiModelName(),
                                 ctx.modelConfig.getBaseUrl());
                     } else {
-                        log.info("Chat stream completed: conversationId={}, totalChunks={}, latencyMs={}, firstTokenLatencyMs={}, usage={}, cards={}, runId={}",
-                                ctx.conversationId, totalChunks, totalLatencyMs, firstTokenLatencyMs, usageMap, tail.size(),
+                        log.info("Chat stream completed: conversationId={}, totalChunks={}, latencyMs={}, firstTokenLatencyMs={}, reasoningChunks={}, reasoningChars={}, usage={}, cards={}, runId={}",
+                                ctx.conversationId, totalChunks, totalLatencyMs, firstTokenLatencyMs,
+                                reasoningChunks.get(), reasoningLen.get(), usageMap, tail.size(),
                                 runLog.getId());
                     }
 
@@ -363,7 +378,7 @@ public class ChatServiceImpl implements ChatService {
                         agentRunService.markCancelled(runLog.getId(), AgentRunCancelReasons.CLIENT_DISCONNECT);
                         finishQuota(loginUserId, ctx.scene.getAgentCode(), 0);
                     }
-                });
+                }));
     }
 
     // ============================================================
@@ -686,6 +701,30 @@ public class ChatServiceImpl implements ChatService {
                     scene.getAgentCode(), e.getMessage(), e);
             return null;
         }
+    }
+
+    /**
+     * 读取流式 chunk 上的正文增量。
+     */
+    private static String extractText(org.springframework.ai.chat.model.ChatResponse aiResp) {
+        if (aiResp.getResult() == null || aiResp.getResult().getOutput() == null) {
+            return "";
+        }
+        String text = aiResp.getResult().getOutput().getText();
+        return text != null ? text : "";
+    }
+
+    /**
+     * 读取 Spring AI 在流式 chunk 上累计的推理内容（reasoning_content）。
+     * 非推理模型或未启用时返回空串。
+     */
+    private static String extractReasoning(org.springframework.ai.chat.model.ChatResponse aiResp) {
+        if (aiResp.getResult() == null || aiResp.getResult().getOutput() == null) {
+            return "";
+        }
+        Map<String, Object> metadata = aiResp.getResult().getOutput().getMetadata();
+        Object reasoning = metadata != null ? metadata.get("reasoningContent") : null;
+        return reasoning instanceof String s ? s : "";
     }
 
     /**
